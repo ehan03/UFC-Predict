@@ -4,4 +4,4 @@
 
 WIP
 
-Based on data up to UFC 283 (1/21/2023)
+Based on data up to UFC Fight Night: Yan vs. Dvalishvili (March 11, 2023).
