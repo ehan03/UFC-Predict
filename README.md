@@ -4,4 +4,4 @@
 
 WIP
 
-Based on data up to UFC Fight Night: Yan vs. Dvalishvili (March 11, 2023).
+Based on data between UFC Live: Vera vs. Jones (March 21, 2010) and UFC Fight Night: Yan vs. Dvalishvili (March 11, 2023), totalling 5406 unique fights.
