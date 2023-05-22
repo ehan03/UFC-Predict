@@ -276,11 +276,6 @@ def main():
     # Scrape bout stats
     bout_stats = get_bout_stats(bout_urls)
     print(f"Found statistics for {bout_stats.shape[0]} bouts, now cleaning data...")
-    print(bout_stats.head())
-    print(bout_stats.tail())
-
-    fighter_stats.to_csv("../data/fighter_stats_raw.csv", index=False, header=True)
-    bout_stats.to_csv("../data/bout_stats_raw.csv", index=False, header=True)
 
     # Clean data
 
