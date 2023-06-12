@@ -8,6 +8,7 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from useragents import AGENT_LIST
+from cleaning import clean_fighter_stats, clean_bout_stats
 
 def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
@@ -160,6 +161,9 @@ def get_bout_stats_from_bout(bout_url, event, date):
 
     # Bout Type
     typ = soup.findAll("i", {"class": "b-fight-details__fight-title"})
+    if not typ:
+        print(bout_url)
+        raise Exception("Cannot find bout type")
     bout.append(typ[0].text.strip())
 
     # Method
@@ -180,7 +184,7 @@ def get_bout_stats_from_bout(bout_url, event, date):
     if tables:
         if len(tables) != 4:
             print(bout_url)
-            raise Exception("uh oh")
+            raise Exception("Cannot find all tables")
         
         # Totals
         totals = []
@@ -225,7 +229,7 @@ def get_bout_stats_from_bout(bout_url, event, date):
 
     if len(bout) != 222:
         print(bout_url)
-        raise Exception("uh oh")
+        raise Exception("Incorrect number of stats")
     
     return bout
 
@@ -260,17 +264,17 @@ def main():
 
     # Scrape fighter urls
     fighter_urls = get_fighter_urls()
-    print(f"Found {len(fighter_urls)} fighter urls, now sleeping for 10 seconds...")
+    print(f"Found {len(fighter_urls)} fighter urls, now scraping event urls and fighter stats...")
     time.sleep(10)
     
     # Scrape event urls + fighter stats
     event_urls, fighter_stats = get_event_urls_and_fighter_stats(fighter_urls)
-    print(f"Found {event_urls.shape[0]} event urls and statistics for {len(fighter_urls)} fighters, now sleeping for 10 seconds...")
+    print(f"Found {event_urls.shape[0]} event urls and statistics for {len(fighter_urls)} fighters, now scraping bout urls...")
     time.sleep(10)
 
     # Scrape bout urls
     bout_urls = get_bout_urls(event_urls)
-    print(f"Found {bout_urls.shape[0]} bout urls, now sleeping for 10 seconds...")
+    print(f"Found {bout_urls.shape[0]} bout urls, now scraping bout stats...")
     time.sleep(10)
 
     # Scrape bout stats
@@ -278,9 +282,13 @@ def main():
     print(f"Found statistics for {bout_stats.shape[0]} bouts, now cleaning data...")
 
     # Clean data
-
+    fighter_stats_clean = clean_fighter_stats(fighter_stats)
+    bout_stats_clean = clean_bout_stats(bout_stats)
+    print("Finished cleaning data, now saving to csv...")
 
     # Save data to csv
+    fighter_stats_clean.to_csv("../data/fighter_stats.csv", index=False)
+    bout_stats_clean.to_csv("../data/bout_stats.csv", index=False)
 
     end = time.time()
     print(f"Finished in {end - start} seconds")
