@@ -293,8 +293,8 @@ def main():
     print("Finished cleaning data, now saving to csv...")
 
     # Save data to csv
-    fighter_stats_clean.to_csv("../data/fighter_stats.csv", index=False)
-    bout_stats_clean.to_csv("../data/bout_stats.csv", index=False)
+    fighter_stats_clean.to_csv("data/fighter_stats.csv", index=False)
+    bout_stats_clean.to_csv("data/bout_stats.csv", index=False)
 
     end = time.time()
     print(f"Finished in {end - start} seconds")
