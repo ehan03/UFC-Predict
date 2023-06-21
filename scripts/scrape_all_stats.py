@@ -14,6 +14,7 @@ def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
     header = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(url, headers=header, allow_redirects=False)
+    source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
     table = soup.find("tbody")
@@ -38,6 +39,7 @@ def get_fighter_urls():
 def get_info_from_fighter(fighter_url):
     header = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(fighter_url, headers=header, allow_redirects=False)
+    source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
     
@@ -118,6 +120,7 @@ def get_event_urls_and_fighter_stats(fighter_urls):
 def get_bout_urls_from_event(event_url, event, date):
     header = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(event_url, headers=header, allow_redirects=False)
+    source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
     rows = soup.findAll("tr", {"class": "b-fight-details__table-row b-fight-details__table-row__hover js-fight-details-click"})
@@ -145,6 +148,7 @@ def get_bout_urls(event_urls):
 def get_bout_stats_from_bout(bout_url, event, date):
     header = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(bout_url, headers=header, allow_redirects=False)
+    source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
     bout = [bout_url, event, date]
