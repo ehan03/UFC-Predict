@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from useragents import AGENT_LIST
 from cleaning import clean_fighter_stats, clean_bout_stats
 
+MAX_WORKERS = 8
+
 def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
     header = {"User-Agent": random.choice(AGENT_LIST)}
@@ -30,7 +32,7 @@ def get_fighter_urls_for_letter(letter):
 def get_fighter_urls():
     fighter_urls = []
     letters = list(ascii_lowercase)
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         for result in tqdm(executor.map(get_fighter_urls_for_letter, letters), total=len(letters), desc="Scraping fighter urls"):
             fighter_urls.extend(result)
     
@@ -102,7 +104,7 @@ def get_info_from_fighter(fighter_url):
 def get_event_urls_and_fighter_stats(fighter_urls):
     events = []
     fighter_stats = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         for result1, result2 in tqdm(executor.map(get_info_from_fighter, fighter_urls), total=len(fighter_urls), 
                                      desc="Scraping event urls and fighter stats"):
             events += result1
@@ -135,7 +137,7 @@ def get_bout_urls_from_event(event_url, event, date):
 
 def get_bout_urls(event_urls):
     bout_urls = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         for result in tqdm(executor.map(get_bout_urls_from_event, event_urls["url"], event_urls["event"], event_urls["date"]), 
                            total=event_urls.shape[0], desc="Scraping bout urls"):
             bout_urls += result
@@ -239,7 +241,7 @@ def get_bout_stats_from_bout(bout_url, event, date):
 
 def get_bout_stats(bout_urls):
     bout_stats = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         for result in tqdm(executor.map(get_bout_stats_from_bout, bout_urls["url"], bout_urls["event"], bout_urls["date"]), 
                            total=bout_urls.shape[0], desc="Scraping bout stats"):
             bout_stats.append(result)
