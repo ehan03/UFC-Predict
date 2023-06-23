@@ -96,3 +96,5 @@ To keep the following table short, for the fields that exist for each fighter in
 | `R_Ground Attempted_R1` | The total number of significant strikes attempted by the fighter in the red corner on the ground in the first round |
 
 As mentioned earlier, this is a truncated version of all the columns. As of the design right now, there are 349 columns in the dataset. Most of this is just from the round-by-round stats, but these could be useful for feature engineering; for instance, looking at the round to round change in striking performance or output could gauge a fighter's stamina and how that changes also from fight to fight throughout a fighter's career.
+
+In a similar way to the fighter data, the bouts data captures information about the overall bout **after it has ended**. So again, one must be careful when creating predictors to not include information that would not be known before the bout has ended. Furthermore, data needs to be split when doing train/test or cross validation in such a way that respects time to avoid data leakage.
