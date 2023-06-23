@@ -14,8 +14,8 @@ MAX_WORKERS = 6
 
 def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
-    header = {"User-Agent": random.choice(AGENT_LIST)}
-    source_code = requests.get(url, headers=header, allow_redirects=False)
+    headers = {"User-Agent": random.choice(AGENT_LIST)}
+    source_code = requests.get(url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
@@ -39,8 +39,8 @@ def get_fighter_urls():
     return fighter_urls
 
 def get_info_from_fighter(fighter_url):
-    header = {"User-Agent": random.choice(AGENT_LIST)}
-    source_code = requests.get(fighter_url, headers=header, allow_redirects=False)
+    headers = {"User-Agent": random.choice(AGENT_LIST)}
+    source_code = requests.get(fighter_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
@@ -120,18 +120,21 @@ def get_event_urls_and_fighter_stats(fighter_urls):
     return df1, df2
 
 def get_bout_urls_from_event(event_url, event, date):
-    header = {"User-Agent": random.choice(AGENT_LIST)}
-    source_code = requests.get(event_url, headers=header, allow_redirects=False)
+    headers = {"User-Agent": random.choice(AGENT_LIST)}
+    source_code = requests.get(event_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
     rows = soup.findAll("tr", {"class": "b-fight-details__table-row b-fight-details__table-row__hover js-fight-details-click"})
-    urls = []
     
+    list_items = soup.findAll("li", {"class": "b-list__box-list-item"})
+    location = list_items[1].text.replace("Location:", "").strip()
+    
+    urls = []
     for row in rows:
         for i, atag in enumerate(row.findAll("a", {"class": "b-flag"}, href=True)):
             if i == 0:
-                urls.append([atag["href"], date, event])
+                urls.append([atag["href"], date, event, location])
 
     return urls[::-1]
 
@@ -142,18 +145,18 @@ def get_bout_urls(event_urls):
                            total=event_urls.shape[0], desc="Scraping bout urls"):
             bout_urls += result
     
-    df = pd.DataFrame(bout_urls, columns=["url", "date", "event"])
+    df = pd.DataFrame(bout_urls, columns=["url", "date", "event", "location"])
     df["date"] = pd.to_datetime(df["date"])
     df = df.drop_duplicates(keep="first").reset_index(drop=True)
     return df
 
-def get_bout_stats_from_bout(bout_url, event, date):
-    header = {"User-Agent": random.choice(AGENT_LIST)}
-    source_code = requests.get(bout_url, headers=header, allow_redirects=False)
+def get_bout_stats_from_bout(bout_url, event, date, location):
+    headers = {"User-Agent": random.choice(AGENT_LIST)}
+    source_code = requests.get(bout_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
     plain_text = source_code.text.encode("ascii", "replace")
     soup = BeautifulSoup(plain_text, "lxml")
-    bout = [bout_url, event, date]
+    bout = [bout_url, event, date, location]
 
     # Names
     names = soup.findAll("h3", {"class": "b-fight-details__person-name"})
@@ -242,11 +245,11 @@ def get_bout_stats_from_bout(bout_url, event, date):
 def get_bout_stats(bout_urls):
     bout_stats = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for result in tqdm(executor.map(get_bout_stats_from_bout, bout_urls["url"], bout_urls["event"], bout_urls["date"]), 
+        for result in tqdm(executor.map(get_bout_stats_from_bout, bout_urls["url"], bout_urls["event"], bout_urls["date"], bout_urls["location"]), 
                            total=bout_urls.shape[0], desc="Scraping bout stats"):
             bout_stats.append(result)
     
-    columns = ["URL", "Event", "Date", "R_Name", "B_Name", "R_Result", "B_Result", "Bout Type", "Method", "Round", "Time", "Format", 
+    columns = ["URL", "Event", "Date", "Location", "R_Name", "B_Name", "R_Result", "B_Result", "Bout Type", "Method", "Round", "Time", "Format", 
                "R_KD", "B_KD", "R_Total Str.", "B_Total Str.", "R_TD", "B_TD", "R_TD %", "B_TD %", "R_Sub. Att", "B_Sub. Att", "R_Rev.", "B_Rev.", "R_Ctrl", "B_Ctrl", 
                "R_KD_R1", "B_KD_R1", "R_Total Str._R1", "B_Total Str._R1", "R_TD_R1", "B_TD_R1", "R_TD %_R1", "B_TD %_R1", "R_Sub. Att_R1", "B_Sub. Att_R1", "R_Rev._R1", "B_Rev._R1", "R_Ctrl_R1", "B_Ctrl_R1", 
                "R_KD_R2", "B_KD_R2", "R_Total Str._R2", "B_Total Str._R2", "R_TD_R2", "B_TD_R2", "R_TD %_R2", "B_TD %_R2", "R_Sub. Att_R2", "B_Sub. Att_R2", "R_Rev._R2", "B_Rev._R2", "R_Ctrl_R2", "B_Ctrl_R2", 

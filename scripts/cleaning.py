@@ -120,6 +120,7 @@ def clean_bout_stats(bout_stats):
     concat_dict = {}
     df = bout_stats.copy()
     df["Date"] = pd.to_datetime(df["Date"])
+    df["Location"] = df["Location"].apply(lambda x: np.nan if x == "" else x)
     df["Round"] = df["Round"].astype(int)
     df["Time"] = df["Time"].str.split(":").apply(lambda x: int(x[0]) + (int(x[1]) / 60.0))
     df["Total Time"] = df.apply(lambda x: total_time(x["Format"], x["Round"], x["Time"]), axis=1)
@@ -372,7 +373,7 @@ def clean_bout_stats(bout_stats):
                  "R_Sig. Str._R6", "B_Sig. Str._R6", "R_Head_R6", "B_Head_R6", "R_Body_R6", "B_Body_R6", "R_Leg_R6", "B_Leg_R6", "R_Distance_R6", "B_Distance_R6", "R_Clinch_R6", "B_Clinch_R6", "R_Ground_R6", "B_Ground_R6"]
     df2 = df2.drop(columns=drop_cols)
 
-    cols = ["URL", "Event", "Date", "R_Name", "B_Name", "R_Result", "B_Result", "Bout Type", "Method", "Round", "Time", "Format", "Total Time", 
+    cols = ["URL", "Event", "Date", "Location", "R_Name", "B_Name", "R_Result", "B_Result", "Bout Type", "Method", "Round", "Time", "Format", "Total Time", 
             "R_KD", "B_KD", "R_Total Str. Landed", "R_Total Str. Attempted", "B_Total Str. Landed", "B_Total Str. Attempted", "R_TD Landed", "R_TD Attempted", "B_TD Landed", "B_TD Attempted", "R_TD %", "B_TD %", "R_Sub. Att", "B_Sub. Att", "R_Rev.", "B_Rev.", "R_Ctrl", "B_Ctrl", 
             "R_KD_R1", "B_KD_R1", "R_Total Str. Landed_R1", "R_Total Str. Attempted_R1", "B_Total Str. Landed_R1", "B_Total Str. Attempted_R1", "R_TD Landed_R1", "R_TD Attempted_R1", "B_TD Landed_R1", "B_TD Attempted_R1", "R_TD %_R1", "B_TD %_R1", "R_Sub. Att_R1", "B_Sub. Att_R1", "R_Rev._R1", "B_Rev._R1", "R_Ctrl_R1", "B_Ctrl_R1",
             "R_KD_R2", "B_KD_R2", "R_Total Str. Landed_R2", "R_Total Str. Attempted_R2", "B_Total Str. Landed_R2", "B_Total Str. Attempted_R2", "R_TD Landed_R2", "R_TD Attempted_R2", "B_TD Landed_R2", "B_TD Attempted_R2", "R_TD %_R2", "B_TD %_R2", "R_Sub. Att_R2", "B_Sub. Att_R2", "R_Rev._R2", "B_Rev._R2", "R_Ctrl_R2", "B_Ctrl_R2",
