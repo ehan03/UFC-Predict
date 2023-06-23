@@ -236,7 +236,7 @@ def get_bout_stats_from_bout(bout_url, event, date, location):
         # For fights without round by round stats
         bout.extend([np.nan for i in range(210)])
 
-    if len(bout) != 222:
+    if len(bout) != 223:
         print(bout_url)
         raise Exception("Incorrect number of stats")
     
