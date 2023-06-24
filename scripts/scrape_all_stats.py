@@ -4,13 +4,12 @@ import requests
 import random
 import time
 from string import ascii_lowercase
-from tqdm import tqdm
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from useragents import AGENT_LIST
 from cleaning import clean_fighter_stats, clean_bout_stats
 
-MAX_WORKERS = 6
+MAX_WORKERS = 8
 
 def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
@@ -33,7 +32,7 @@ def get_fighter_urls():
     fighter_urls = []
     letters = list(ascii_lowercase)
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for result in tqdm(executor.map(get_fighter_urls_for_letter, letters), total=len(letters), desc="Scraping fighter urls"):
+        for result in executor.map(get_fighter_urls_for_letter, letters):
             fighter_urls.extend(result)
     
     return fighter_urls
@@ -105,8 +104,7 @@ def get_event_urls_and_fighter_stats(fighter_urls):
     events = []
     fighter_stats = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for result1, result2 in tqdm(executor.map(get_info_from_fighter, fighter_urls), total=len(fighter_urls), 
-                                     desc="Scraping event urls and fighter stats"):
+        for result1, result2 in executor.map(get_info_from_fighter, fighter_urls):
             events += result1
             fighter_stats.append(result2)
     
@@ -141,8 +139,7 @@ def get_bout_urls_from_event(event_url, event, date):
 def get_bout_urls(event_urls):
     bout_urls = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for result in tqdm(executor.map(get_bout_urls_from_event, event_urls["url"], event_urls["event"], event_urls["date"]), 
-                           total=event_urls.shape[0], desc="Scraping bout urls"):
+        for result in executor.map(get_bout_urls_from_event, event_urls["url"], event_urls["event"], event_urls["date"]):
             bout_urls += result
     
     df = pd.DataFrame(bout_urls, columns=["url", "date", "event", "location"])
@@ -245,8 +242,7 @@ def get_bout_stats_from_bout(bout_url, event, date, location):
 def get_bout_stats(bout_urls):
     bout_stats = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for result in tqdm(executor.map(get_bout_stats_from_bout, bout_urls["url"], bout_urls["event"], bout_urls["date"], bout_urls["location"]), 
-                           total=bout_urls.shape[0], desc="Scraping bout stats"):
+        for result in executor.map(get_bout_stats_from_bout, bout_urls["url"], bout_urls["event"], bout_urls["date"], bout_urls["location"]):
             bout_stats.append(result)
     
     columns = ["URL", "Event", "Date", "Location", "R_Name", "B_Name", "R_Result", "B_Result", "Bout Type", "Method", "Round", "Time", "Format", 
@@ -269,37 +265,37 @@ def get_bout_stats(bout_urls):
     return df
 
 def main():
-    start = time.time()
+    start = time.perf_counter()
 
     # Scrape fighter urls
     fighter_urls = get_fighter_urls()
-    print(f"Found {len(fighter_urls)} fighter urls, now scraping event urls and fighter stats...")
+    print(f"Found {len(fighter_urls)} fighter urls, now scraping event urls and fighter stats...", flush=True)
     time.sleep(10)
     
     # Scrape event urls + fighter stats
     event_urls, fighter_stats = get_event_urls_and_fighter_stats(fighter_urls)
-    print(f"Found {event_urls.shape[0]} event urls and statistics for {len(fighter_urls)} fighters, now scraping bout urls...")
+    print(f"Found {event_urls.shape[0]} event urls and statistics for {len(fighter_urls)} fighters, now scraping bout urls...", flush=True)
     time.sleep(10)
 
     # Scrape bout urls
     bout_urls = get_bout_urls(event_urls)
-    print(f"Found {bout_urls.shape[0]} bout urls, now scraping bout stats...")
+    print(f"Found {bout_urls.shape[0]} bout urls, now scraping bout stats...", flush=True)
     time.sleep(10)
 
     # Scrape bout stats
     bout_stats = get_bout_stats(bout_urls)
-    print(f"Found statistics for {bout_stats.shape[0]} bouts, now cleaning data...")
+    print(f"Found statistics for {bout_stats.shape[0]} bouts, now cleaning data...", flush=True)
 
     # Clean data
     fighter_stats_clean = clean_fighter_stats(fighter_stats)
     bout_stats_clean = clean_bout_stats(bout_stats)
-    print("Finished cleaning data, now saving to csv...")
+    print("Finished cleaning data, now saving to csv...", flush=True)
 
     # Save data to csv
     fighter_stats_clean.to_csv("data/fighter_stats.csv", index=False)
     bout_stats_clean.to_csv("data/bout_stats.csv", index=False)
 
-    end = time.time()
+    end = time.perf_counter()
     print(f"Finished in {end - start} seconds")
 
 
