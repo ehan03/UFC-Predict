@@ -38,6 +38,7 @@ To keep the following table short, for the fields that exist for each fighter in
 | `URL` | The URL of the bout on the UFC Stats website, not exactly useful for feature engineering, but it's a nice to have when sanity checking data |
 | `Event` | The name of the event the bout took place at |
 | `Date` | The date the bout took place |
+| `Location` | The location of the bout and event |
 | `R_Name` | The name of the fighter in the red corner |
 | `R_Result` | The result of the fighter in the red corner (e.g. W = Win, L = Loss, D = Draw, NC = No Contest (overturned)) |
 | `Bout Type` | A combination of weight class, whether or not it was a title fight, and if it was some kind of special event |
@@ -95,7 +96,7 @@ To keep the following table short, for the fields that exist for each fighter in
 | `R_Ground Landed_R1` | The total number of significant strikes landed by the fighter in the red corner on the ground in the first round |
 | `R_Ground Attempted_R1` | The total number of significant strikes attempted by the fighter in the red corner on the ground in the first round |
 
-As mentioned earlier, this is a truncated version of all the columns. As of the design right now, there are 349 columns in the dataset. Most of this is just from the round-by-round stats, but these could be useful for feature engineering; for instance, looking at the round to round change in striking performance or output could gauge a fighter's stamina and how that changes also from fight to fight throughout a fighter's career.
+As mentioned earlier, this is a truncated version of all the columns. As of the design right now, there are 350 columns in the dataset. Most of this is just from the round-by-round stats, but these could be useful for feature engineering; for instance, looking at the round to round change in striking performance or output could gauge a fighter's stamina and how that changes also from fight to fight throughout a fighter's career.
 
 In a similar way to the fighter data, the bouts data captures information about the overall bout **after it has ended**. So again, one must be careful when creating predictors to not include information that would not be known before the bout has ended. Furthermore, data needs to be split when doing train/test or cross validation in such a way that respects time to avoid data leakage.
 
