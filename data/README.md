@@ -38,6 +38,7 @@ To keep the following table short, for the fields that exist for each fighter in
 | `URL` | The URL of the bout on the UFC Stats website, not exactly useful for feature engineering, but it's a nice to have when sanity checking data |
 | `Event` | The name of the event the bout took place at |
 | `Date` | The date the bout took place |
+| `Location` | The location of the bout and event |
 | `R_Name` | The name of the fighter in the red corner |
 | `R_Result` | The result of the fighter in the red corner (e.g. W = Win, L = Loss, D = Draw, NC = No Contest (overturned)) |
 | `Bout Type` | A combination of weight class, whether or not it was a title fight, and if it was some kind of special event |
