@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from useragents import AGENT_LIST
 from cleaning import clean_fighter_stats, clean_bout_stats
 
-MAX_WORKERS = 8
+MAX_WORKERS = 10
 
 def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
@@ -296,7 +296,7 @@ def main():
     bout_stats_clean.to_csv("data/bout_stats.csv", index=False)
 
     end = time.perf_counter()
-    print(f"Finished in {end - start} seconds")
+    print(f"Finished in {end - start} seconds", flush=True)
 
 
 if __name__ == "__main__":
