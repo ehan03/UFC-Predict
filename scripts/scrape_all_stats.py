@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from useragents import AGENT_LIST
 from cleaning import clean_fighter_stats, clean_bout_stats
 
-MAX_WORKERS = 10
+MAX_WORKERS = 8
 
 def get_fighter_urls_for_letter(letter):
     url = f"http://ufcstats.com/statistics/fighters?char={letter}&page=all"
