@@ -64,13 +64,11 @@ def get_info_from_fighter(fighter_url):
     info = []
     if record and name:
         info.append(
-            name[0].text.replace("  ", "")
-                .replace("\n", "")
+            name[0].text.strip()
         )
         info.append(
-            record[0].text.replace("  ", "")
-                .replace("\n", "")
-                .replace("Record: ", "")
+            record[0].text.replace("Record: ", "")
+                        .strip()
         )
     else:
         print(soup.prettify())
