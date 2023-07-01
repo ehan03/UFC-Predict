@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from cleaning import clean_bout_stats, clean_fighter_stats
 
 # Local imports
-from .useragents import AGENT_LIST
+from useragents import AGENT_LIST
 
 MAX_WORKERS = 8
 
