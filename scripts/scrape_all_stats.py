@@ -1,4 +1,4 @@
-# Standard imports
+# Standard library imports
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
