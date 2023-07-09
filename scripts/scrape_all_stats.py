@@ -14,7 +14,7 @@ from cleaning import clean_bout_stats, clean_fighter_stats
 # Local imports
 from useragents import AGENT_LIST
 
-MAX_WORKERS = 8
+MAX_WORKERS = 6
 
 
 def get_fighter_urls_for_letter(letter):
