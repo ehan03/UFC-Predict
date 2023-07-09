@@ -14,7 +14,7 @@ from cleaning import clean_bout_stats, clean_fighter_stats
 # Local imports
 from useragents import AGENT_LIST
 
-MAX_WORKERS = 6
+MAX_WORKERS = 8
 
 
 def get_fighter_urls_for_letter(letter):
@@ -46,6 +46,7 @@ def get_fighter_urls():
 
 
 def get_info_from_fighter(fighter_url):
+    time.sleep(1)
     headers = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(fighter_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
@@ -154,6 +155,7 @@ def get_event_urls_and_fighter_stats(fighter_urls):
 
 
 def get_bout_urls_from_event(event_url, event, date):
+    time.sleep(1)
     headers = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(event_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
@@ -196,6 +198,7 @@ def get_bout_urls(event_urls):
 
 
 def get_bout_stats_from_bout(bout_url, event, date, location):
+    time.sleep(1)
     headers = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(bout_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
@@ -551,7 +554,6 @@ def main():
         f"Found {len(fighter_urls)} fighter urls, now scraping event urls and fighter stats...",
         flush=True,
     )
-    time.sleep(10)
 
     # Scrape event urls + fighter stats
     event_urls, fighter_stats = get_event_urls_and_fighter_stats(fighter_urls)
@@ -559,14 +561,12 @@ def main():
         f"Found {event_urls.shape[0]} event urls and statistics for {len(fighter_urls)} fighters, now scraping bout urls...",
         flush=True,
     )
-    time.sleep(10)
 
     # Scrape bout urls
     bout_urls = get_bout_urls(event_urls)
     print(
         f"Found {bout_urls.shape[0]} bout urls, now scraping bout stats...", flush=True
     )
-    time.sleep(10)
 
     # Scrape bout stats
     bout_stats = get_bout_stats(bout_urls)
