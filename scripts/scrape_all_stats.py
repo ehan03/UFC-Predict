@@ -46,7 +46,6 @@ def get_fighter_urls():
 
 
 def get_info_from_fighter(fighter_url):
-    time.sleep(3)
     headers = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(fighter_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
@@ -155,7 +154,6 @@ def get_event_urls_and_fighter_stats(fighter_urls):
 
 
 def get_bout_urls_from_event(event_url, event, date):
-    time.sleep(3)
     headers = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(event_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()
@@ -198,7 +196,6 @@ def get_bout_urls(event_urls):
 
 
 def get_bout_stats_from_bout(bout_url, event, date, location):
-    time.sleep(3)
     headers = {"User-Agent": random.choice(AGENT_LIST)}
     source_code = requests.get(bout_url, headers=headers, allow_redirects=False)
     source_code.raise_for_status()

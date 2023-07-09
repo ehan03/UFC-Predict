@@ -28,6 +28,9 @@ The following figure and table come from a sample of ~1300 bouts for five differ
 
 </div>
 
+The adjusted implied probability refers to the red corner fighter's implied probability of victory factoring in the bookmaker's house edge. The number of bins used is 10. In general, we see that the calibration curves follow pretty closely to the ideal line, but there are some deviations near the tails, especially when the red corner fighter is an underdog.
+
+
 <div align="center">
 
 | Bookmaker  | Log Loss | Brier Score Loss | Expected Calibration Error | Mean Vig (House Edge) (%) |
