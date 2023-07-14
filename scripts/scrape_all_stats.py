@@ -1,17 +1,13 @@
-# Standard library imports
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from string import ascii_lowercase
 
-# Third-party imports
 import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from cleaning import clean_bout_stats, clean_fighter_stats
-
-# Local imports
 from useragents import AGENT_LIST
 
 MAX_WORKERS = 8
