@@ -1,5 +1,14 @@
 # UFC-Predict
 
+## To-Do's
+
+- [ ] Come up with OOP-based design
+- [ ] Research Scrapy
+- [ ] Rewrite scraping functionality using Scrapy and Scrapyscript
+- [ ] Set up sqlite3 database and facade inside Scrapy pipeline
+
+---
+
 ## Introduction
 
 As a long-time MMA fan and student studying statistics, I felt that working on a project involving data from UFC fighters and bouts as well as machine learning would be a great way to combine my interests and gain a deeper understanding of both the sport and the theory/application of data science. My goal for this project is to develop a model to predict well-calibrated probabilities of victory for each fighter in a given bout using statistics from previous fights. Using these probability outputs, I plan to build a betting strategy to beat bookmakers and exploit miscalibrated odds.
