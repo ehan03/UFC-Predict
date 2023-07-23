@@ -2,10 +2,10 @@
 
 ## To-Do's
 
-- [ ] Come up with OOP-based design
-- [ ] Research Scrapy
-- [ ] Rewrite scraping functionality using Scrapy and Scrapyscript
-- [ ] Set up sqlite3 database and facade inside Scrapy pipeline
+- [ ] Finish refactoring bout scraping to Scrapy
+- [ ] Research Featuretools/DFS
+- [ ] Start feature engineering rehaul
+- [ ] Research H2O AutoML and Auto-Sklearn
 
 ---
 
