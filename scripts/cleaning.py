@@ -1,8 +1,8 @@
-# Standard imports
+# standard library imports
 
-# Local imports
+# local imports
 
-# Third-party imports
+# third party imports
 import numpy as np
 import pandas as pd
 
