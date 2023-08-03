@@ -1,4 +1,4 @@
-name: Scrape all stats from UFCStats website
+name: Scrape UFCStats
 
 on:
     workflow_dispatch:
