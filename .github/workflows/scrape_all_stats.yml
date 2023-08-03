@@ -19,7 +19,7 @@ jobs:
                 pip install pandas numpy scrapy
             
             - name: Run scraper
-              run: python src/pipeline_run.py scrape_ufc_stats
+              run: python pipeline_run.py scrape_ufc_stats
         
             - name: Commit files
               run: |
