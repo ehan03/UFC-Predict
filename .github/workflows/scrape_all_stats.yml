@@ -16,10 +16,10 @@ jobs:
             - name: Install dependencies
               run: |
                 python -m pip install --upgrade pip
-                pip install pandas numpy bs4 lxml requests
+                pip install pandas numpy scrapy
             
             - name: Run scraper
-              run: python scripts/scrape_all_stats.py
+              run: python src/pipeline_run.py scrape_ufc_stats
         
             - name: Commit files
               run: |
