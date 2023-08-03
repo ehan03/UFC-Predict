@@ -2,7 +2,7 @@
 
 ## To-Do's
 
-- [ ] Finish refactoring bout scraping to Scrapy
+- [x] Finish refactoring bout scraping to Scrapy
 - [ ] Research Featuretools/DFS
 - [ ] Start feature engineering rehaul
 - [ ] Research H2O AutoML and Auto-Sklearn
