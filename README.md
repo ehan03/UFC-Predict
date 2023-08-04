@@ -13,7 +13,7 @@ As a long-time MMA fan and student studying statistics, I felt that working on a
 
 ## Data
 
-The data used for building the model is scraped from [UFC Stats](http://www.ufcstats.com/statistics/events/completed) primarily using `beautifulsoup4`. I've created a script to scrape all data (yes, essentially *everything*), clean it, and dump into CSVs every week, which I've automated through GitHub Actions. Refer to the [README](data/README.md) in the `data` folder for a more detailed description of the data and relevant fields.
+The data used for building the model is scraped from [UFC Stats](http://www.ufcstats.com/statistics/events/completed) using `scrapy`. Data from Tapology is under consideration, but out of scope at this point in the project.
 
 I'm currently in the EDA and feature engineering process.
 
