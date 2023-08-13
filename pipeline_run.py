@@ -24,28 +24,7 @@ class PipelineRun:
         }
 
     def scrape_ufc_stats(self):
-        process = CrawlerProcess(
-            {
-                "BOT_NAME": "ufc_scrapy",
-                "SPIDER_MODULES": ["ufc_scrapy.spiders"],
-                "NEWSPIDER_MODULE": "ufc_scrapy.spiders",
-                "ROBOTSTXT_OBEY": False,
-                "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
-                "CONCURRENT_REQUESTS": 10,
-                "DOWNLOADER_MIDDLEWARES": {
-                    "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
-                    "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
-                },
-                "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
-                "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-                "FEED_EXPORT_ENCODING": "utf-8",
-                "DEPTH_PRIORITY": 1,
-                "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
-                "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-                "RETRY_TIMES": 5,
-                "LOG_LEVEL": "INFO",
-            }
-        )
+        process = CrawlerProcess()
         process.crawl(UFCStatsSpider)
         process.start()
 

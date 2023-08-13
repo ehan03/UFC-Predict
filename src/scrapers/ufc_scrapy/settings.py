@@ -102,4 +102,4 @@ SCHEDULER_MEMORY_QUEUE = "scrapy.squeues.FifoMemoryQueue"
 RETRY_TIMES = 5
 
 # Logging settings
-LOG_LEVEL = "INFO"
+LOG_LEVEL = "DEBUG"
