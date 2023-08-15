@@ -1,8 +1,12 @@
 # standard library imports
+import re
+from ast import literal_eval
+from html import unescape
 
 # third party imports
 import pandas as pd
 import w3lib.html
+from scrapy.http import FormRequest
 from scrapy.spiders import Spider
 
 # local imports
@@ -453,12 +457,6 @@ class UFCStatsSpider(Spider):
         yield bout_item
 
 
-class UFCFightersWebsiteSpider(Spider):
-    name = "ufc_fighters_website_spider"
-    allowed_domains = ["ufc.com"]
-    start_urls = ["https://www.ufc.com/athletes/all"]
-
-
 class UFCTapologySpider(Spider):
     name = "ufc_tapology_spider"
     allowed_domains = ["tapology.com"]
@@ -466,26 +464,68 @@ class UFCTapologySpider(Spider):
         "https://www.tapology.com/fightcenter?group=ufc&schedule=results&sport=mma"
     ]
     custom_settings = {
+        "ROBOTSTXT_OBEY": False,
         "DOWNLOAD_DELAY": 0.5,
+        "NUMBER_OF_PROXIES_TO_FETCH": 50,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+            "rotating_free_proxies.middlewares.RotatingProxyMiddleware": 610,
+            "rotating_free_proxies.middlewares.BanDetectionMiddleware": 620,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 5,
     }
 
     def parse(self, response):
-        event_urls = response.css(
+        events = response.css(
             "section.fcListing > div.main > div.left > div.promotion > span.name > a::attr(href)"
-        ).getall()
+        )
+        event_urls = [response.urljoin(url.get()) for url in events]
 
-        for event_url in event_urls:
-            event_url_complete = f"https://www.tapology.com{event_url}"
-            yield response.follow(event_url_complete, callback=self.parse_event)
+        yield from response.follow_all(event_urls, self.parse_event)
 
-        next_page_url = response.css("span.next > a::attr(href)").get()
+        pagination_headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "*/*;q=0.5, text/javascript, application/javascript, application/ecmascript, application/x-ecmascript",
+        }
+        next_page = response.css("span.next > a::attr(href)")
+        next_page_url = [response.urljoin(url.get()) for url in next_page]
         if next_page_url:
-            next_page_url_complete = f"https://www.tapology.com{next_page_url}"
-            print(next_page_url_complete)
-        #     yield response.follow(next_page_url_complete, callback=self.parse)
+            yield FormRequest(
+                url=next_page_url[0],
+                method="GET",
+                headers=pagination_headers,
+                callback=self.parse_next_page,
+            )
+
+    def parse_next_page(self, response):
+        data = response.text
+        data = re.search(r"html\((.*)\);", data)
+        assert data is not None
+        data = data.group(1)
+        data = unescape(literal_eval(data)).replace(r"\/", "/")
+
+        yield from self.parse(response.replace(body=data))
 
     def parse_event(self, response):
-        return
+        bouts = response.css(
+            "div.fightCardMatchup > table > tr > td > span.billing > a::attr(href)"
+        )
+        bout_urls = [response.urljoin(url.get()) for url in bouts]
+
+        yield from response.follow_all(bout_urls, self.parse_bout)
+
+    def parse_bout(self, response):
+        pass
+
+    def parse_fighter(self, response):
+        pass
 
 
 class UFCRankingsSpider(Spider):
