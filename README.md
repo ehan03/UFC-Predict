@@ -3,9 +3,11 @@
 ## To-Do's
 
 The current preliminary iteration of my model achieves the following scores:
+<div align="center">
 | Log Loss | Brier Score Loss | Expected Calibration Error |
 | :------: | :--------------: | :------------------------: |
 | 0.652256 | 0.230223         | 0.032830                   |
+</div>
 
 The next steps include:
 
