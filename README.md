@@ -2,7 +2,7 @@
 
 ## To-Do's
 
-- [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds, will likely need to )
+- [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds, will likely need convex optimization/gradient ascent algorithm)
 - [ ] Create optimal ML pipeline, be more robust about feature selection
 - [ ] Look into cloud databases
 - [ ] Automate entire process to start preparing for deployment
