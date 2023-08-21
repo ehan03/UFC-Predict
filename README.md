@@ -1,9 +1,13 @@
 # UFC-Predict
 
-The current iteration of my model achieves the following
----
-
 ## To-Do's
+
+The current preliminary iteration of my model achieves the following scores:
+| Log Loss | Brier Score Loss | Expected Calibration Error |
+| :------: | :--------------: | :------------------------: |
+| 0.652256 | 0.230223         | 0.032830                   |
+
+The next steps include:
 
 - [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds, will likely need convex optimization/gradient ascent algorithm)
 - [ ] Rigorously test strategy with prefight odds (not closing, likely at a designated time on Friday nights) and bootstrap methods
