@@ -1,12 +1,15 @@
 # UFC-Predict
 
+The current iteration of my model achieves the following
+---
+
 ## To-Do's
 
 - [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds, will likely need convex optimization/gradient ascent algorithm)
+- [ ] Rigorously test strategy with prefight odds (not closing, likely at a designated time on Friday nights) and bootstrap methods
 - [ ] Create optimal ML pipeline, be more robust about feature selection
 - [ ] Look into cloud databases
 - [ ] Automate entire process to start preparing for deployment
----
 
 ## Introduction
 
