@@ -1,5 +1,13 @@
 # UFC-Predict
 
+## To-Do's
+
+[ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds, will likely need to )
+[ ] Create optimal ML pipeline, be more robust about feature selection
+[ ] Look into cloud databases
+[ ] Automate entire process to start preparing for deployment
+---
+
 ## Introduction
 
 As a long-time MMA fan and student studying statistics, I felt that working on a project involving data from UFC fighters and bouts as well as machine learning would be a great way to combine my interests and gain a deeper understanding of both the sport and the theory/application of data science. My goal for this project is to develop a model to predict well-calibrated probabilities of victory for each fighter in a given bout using statistics from previous fights. Using these probability outputs, I plan to build a betting strategy to beat bookmakers and exploit miscalibrated odds.
@@ -7,8 +15,6 @@ As a long-time MMA fan and student studying statistics, I felt that working on a
 ## Data
 
 The data used for building the model is scraped from [UFC Stats](http://www.ufcstats.com/statistics/events/completed) using `scrapy`. Data from Tapology is under consideration, but out of scope at this point in the project.
-
-I'm currently in the EDA and feature engineering process.
 
 For betting odds, as of right now I am using [FightOdds.io](https://fightodds.io/recent-mma-events/ufc) and the API it uses under the hood.
 
