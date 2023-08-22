@@ -15,7 +15,7 @@ The current preliminary iteration of my model achieves the following scores:
 The next steps include:
 
 - [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds, will likely need convex optimization/gradient ascent algorithm)
-- [ ] Rigorously test strategy with prefight odds (not closing, likely at a designated time on Friday nights) and bootstrap methods
+- [ ] Rigorously test strategy with prefight odds (not closing, likely at a designated time on Friday nights); I'm thinking of doing Monte Carlo simulations using the `predict_proba` outputs +/- Maximum Calibration Error (MCE) or similar as well as bootstrap methods
 - [ ] Create optimal ML pipeline, be more robust about feature selection
 - [ ] Look into cloud databases
 - [ ] Automate entire process to start preparing for deployment
