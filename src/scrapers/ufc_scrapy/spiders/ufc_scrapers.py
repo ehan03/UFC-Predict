@@ -1,3 +1,7 @@
+"""
+This module contains all the spiders for scraping UFC data.
+"""
+
 # standard library imports
 import re
 from ast import literal_eval
@@ -10,18 +14,28 @@ from scrapy.http import FormRequest
 from scrapy.spiders import Spider
 
 # local imports
-from src.scrapers.ufc_scrapy.items import BoutItem, FighterItem
+from src.scrapers.ufc_scrapy.items import (
+    UFCStatsBoutOverallItem,
+    UFCStatsBoutRoundItem,
+    UFCStatsFighterItem,
+)
 from src.scrapers.ufc_scrapy.utils import (
     convert_height,
     ctrl_time,
     extract_landed_attempted,
-    extract_record,
     total_time,
 )
 
 
 class UFCStatsSpider(Spider):
-    name = "ufc_stats_spider"
+    """
+    Spider for scraping UFC bout and fighter data from UFCStats
+
+    Attributes:
+        most_recent_only (bool): Whether to only scrape the most recent event or all past events
+    """
+
+    name = "ufcstats_spider"
     allowed_domains = ["ufcstats.com"]
     start_urls = [
         "http://ufcstats.com/statistics/events/completed?page=all",
@@ -43,12 +57,31 @@ class UFCStatsSpider(Spider):
         "RETRY_TIMES": 5,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.BoutsSQLitePipeline": 100,
-            "ufc_scrapy.pipelines.FightersSQLitePipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
         },
     }
 
+    def __init__(self, *args, scrape_type: str, **kwargs):
+        """
+        Initialize UFCStatsSpider
+
+        Parameters:
+            most_recent_only (bool): Whether to only scrape the most recent event or all past events
+        """
+        super().__init__(*args, **kwargs)
+        assert scrape_type in {"all", "most_recent"}
+        self.scrape_type = scrape_type
+
     def parse(self, response):
+        """
+        Parses response from start URL and yields requests for each event URL
+
+        Parameters:
+            response (Response): Response from start URL
+        """
+
         event_urls = ["http://ufcstats.com/event-details/6420efac0578988b"]
         event_urls.extend(
             response.css(
@@ -59,10 +92,19 @@ class UFCStatsSpider(Spider):
             ).getall()
         )
 
-        for event_url in event_urls:
-            yield response.follow(event_url, callback=self.parse_event)
+        if self.scrape_type == "most_recent":
+            event_urls = [event_urls[-1]]
+
+        yield from response.follow_all(event_urls, self.parse_event)
 
     def parse_event(self, response):
+        """
+        Parses response from event URL and yields requests for each bout URL and fighter URL.
+
+        Parameters:
+            response (Response): Response from event URL
+        """
+
         bout_urls = response.css(
             """tr.b-fight-details__table-row.b-fight-details__table-row__hover.js-fight-details-click > 
             td.b-fight-details__table-col.b-fight-details__table-col_style_align-top >
@@ -70,6 +112,7 @@ class UFCStatsSpider(Spider):
             a.b-flag::attr(href)"""
         ).getall()
 
+        # Event metadata we can grab up front
         event_id = response.url.split("/")[-1]
         event_name = (
             response.css(
@@ -87,7 +130,9 @@ class UFCStatsSpider(Spider):
             if i % 2 == 1
         ]
 
+        # Preserve order of bouts
         for bout_ordinal, bout_url in enumerate(reversed(bout_urls)):
+            # Overall stats
             yield response.follow(
                 bout_url,
                 callback=self.parse_bout,
@@ -107,29 +152,23 @@ class UFCStatsSpider(Spider):
             """
         ).getall()
 
-        for fighter_url in fighter_urls:
-            yield response.follow(fighter_url, callback=self.parse_fighter)
+        yield from response.follow_all(fighter_urls, self.parse_fighter)
 
     def parse_fighter(self, response):
-        fighter_item = FighterItem()
+        """
+        Parses response from fighter URL and yields FighterItem
+
+        Parameters:
+            response (Response): Response from fighter URL
+        """
+
+        fighter_item = UFCStatsFighterItem()
 
         # Get all relevant fields
         fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
         fighter_item["FIGHTER_NAME"] = (
             response.css("span.b-content__title-highlight::text").get().strip()
         )
-        record = (
-            response.css("span.b-content__title-record::text")
-            .get()
-            .replace("Record: ", "")
-            .strip()
-        )
-        (
-            fighter_item["WINS"],
-            fighter_item["LOSSES"],
-            fighter_item["DRAWS"],
-            fighter_item["NO_CONTESTS"],
-        ) = extract_record(record)
 
         info = [
             x.strip()
@@ -151,52 +190,72 @@ class UFCStatsSpider(Spider):
 
         yield fighter_item
 
-    def parse_bout(self, response, event_id, event_name, date, location, bout_ordinal):
-        bout_item = BoutItem()
+    def parse_bout(
+        self,
+        response,
+        event_id: str,
+        event_name: str,
+        date: str,
+        location: str,
+        bout_ordinal: int,
+    ):
+        """
+        Parses response from bout URL and yields BoutItem
 
-        bout_item["BOUT_ID"] = response.url.split("/")[-1]
+        Parameters:
+            response (Response): Response from bout URL
+            event_id (str): Event ID
+            event_name (str): Event name
+            date (str): Date of event
+            location (str): Location of event
+            bout_ordinal (int): Bout ordinal i.e. 0 for first bout, 1 for second bout, etc.
+        """
 
-        bout_item["EVENT_ID"] = event_id
-        bout_item["EVENT_NAME"] = event_name
-        bout_item["DATE"] = pd.to_datetime(date).strftime("%Y-%m-%d")
-        bout_item["LOCATION"] = location
-        bout_item["BOUT_ORDINAL"] = bout_ordinal
+        bout_overall_item = UFCStatsBoutOverallItem()
+
+        bout_overall_item["BOUT_ID"] = response.url.split("/")[-1]
+
+        bout_overall_item["EVENT_ID"] = event_id
+        bout_overall_item["EVENT_NAME"] = event_name
+        bout_overall_item["DATE"] = pd.to_datetime(date).strftime("%Y-%m-%d")
+        bout_overall_item["LOCATION"] = location
+        bout_overall_item["BOUT_ORDINAL"] = bout_ordinal
 
         # Get all relevant fields
         fighter_urls = response.css(
             "a.b-link.b-fight-details__person-link::attr(href)"
         ).getall()
-        bout_item["RED_FIGHTER_ID"] = fighter_urls[0].split("/")[-1]
-        bout_item["BLUE_FIGHTER_ID"] = fighter_urls[1].split("/")[-1]
+        bout_overall_item["RED_FIGHTER_ID"] = fighter_urls[0].split("/")[-1]
+        bout_overall_item["BLUE_FIGHTER_ID"] = fighter_urls[1].split("/")[-1]
 
         fighter_names = response.css(
             "a.b-link.b-fight-details__person-link::text"
         ).getall()
-        bout_item["RED_FIGHTER_NAME"] = fighter_names[0].strip()
-        bout_item["BLUE_FIGHTER_NAME"] = fighter_names[1].strip()
+        bout_overall_item["RED_FIGHTER_NAME"] = fighter_names[0].strip()
+        bout_overall_item["BLUE_FIGHTER_NAME"] = fighter_names[1].strip()
 
         outcomes = response.css("i.b-fight-details__person-status::text").getall()
-        bout_item["RED_OUTCOME"] = outcomes[0].strip()
-        bout_item["BLUE_OUTCOME"] = outcomes[1].strip()
+        bout_overall_item["RED_OUTCOME"] = outcomes[0].strip()
+        bout_overall_item["BLUE_OUTCOME"] = outcomes[1].strip()
 
-        bout_item["BOUT_TYPE"] = [
+        bout_overall_item["BOUT_TYPE"] = [
             x.strip()
             for x in response.css("i.b-fight-details__fight-title::text").getall()
             if x.strip()
         ][0]
 
         method_info = response.css("i.b-fight-details__text-item_first").getall()
-        bout_item["OUTCOME_METHOD"] = (
+        bout_overall_item["OUTCOME_METHOD"] = (
             w3lib.html.remove_tags(method_info[0]).replace("Method:", "").strip()
         )
 
         details = response.css("p.b-fight-details__text").getall()
-        bout_item["OUTCOME_METHOD_DETAILS"] = (
+        bout_overall_item["OUTCOME_METHOD_DETAILS"] = (
             w3lib.html.remove_tags(details[1]).replace("Details:", "").strip()
         )
 
         time_format_info = response.css("i.b-fight-details__text-item").getall()
-        bout_item["END_ROUND"] = int(
+        bout_overall_item["END_ROUND"] = int(
             w3lib.html.remove_tags(time_format_info[0]).replace("Round:", "").strip()
         )
         end_round_time_split = (
@@ -205,18 +264,18 @@ class UFCStatsSpider(Spider):
             .strip()
             .split(":")
         )
-        bout_item["END_ROUND_TIME_MINUTES"] = (
+        bout_overall_item["END_ROUND_TIME_MINUTES"] = (
             int(end_round_time_split[0]) + int(end_round_time_split[1]) / 60.0
         )
-        bout_item["BOUT_TIME_FORMAT"] = (
+        bout_overall_item["BOUT_TIME_FORMAT"] = (
             w3lib.html.remove_tags(time_format_info[2])
             .replace("Time format:", "")
             .strip()
         )
-        bout_item["TOTAL_TIME_MINUTES"] = total_time(
-            bout_item["BOUT_TIME_FORMAT"],
-            bout_item["END_ROUND"],
-            bout_item["END_ROUND_TIME_MINUTES"],
+        bout_overall_item["TOTAL_TIME_MINUTES"] = total_time(
+            bout_overall_item["BOUT_TIME_FORMAT"],
+            bout_overall_item["END_ROUND"],
+            bout_overall_item["END_ROUND_TIME_MINUTES"],
         )
 
         # Stats tables
@@ -243,8 +302,8 @@ class UFCStatsSpider(Spider):
             "BOUT_TIME_FORMAT",
             "TOTAL_TIME_MINUTES",
         }
-        for key in BoutItem.fields.keys() - non_fight_table_fields:
-            bout_item[key] = None
+        for key in UFCStatsBoutOverallItem.fields.keys() - non_fight_table_fields:
+            bout_overall_item[key] = None
 
         tables = response.css("tbody.b-fight-details__table-body")
         if tables:
@@ -255,90 +314,90 @@ class UFCStatsSpider(Spider):
                 x.strip()
                 for x in tables[0].css("p.b-fight-details__table-text::text").getall()
             ]
-            bout_item["RED_KNOCKDOWNS"] = int(stats[4])
-            bout_item["BLUE_KNOCKDOWNS"] = int(stats[5])
+            bout_overall_item["RED_KNOCKDOWNS"] = int(stats[4])
+            bout_overall_item["BLUE_KNOCKDOWNS"] = int(stats[5])
             (
-                bout_item["RED_TOTAL_STRIKES_LANDED"],
-                bout_item["RED_TOTAL_STRIKES_ATTEMPTED"],
+                bout_overall_item["RED_TOTAL_STRIKES_LANDED"],
+                bout_overall_item["RED_TOTAL_STRIKES_ATTEMPTED"],
             ) = extract_landed_attempted(stats[10])
             (
-                bout_item["BLUE_TOTAL_STRIKES_LANDED"],
-                bout_item["BLUE_TOTAL_STRIKES_ATTEMPTED"],
+                bout_overall_item["BLUE_TOTAL_STRIKES_LANDED"],
+                bout_overall_item["BLUE_TOTAL_STRIKES_ATTEMPTED"],
             ) = extract_landed_attempted(stats[11])
             (
-                bout_item["RED_TAKEDOWNS_LANDED"],
-                bout_item["RED_TAKEDOWNS_ATTEMPTED"],
+                bout_overall_item["RED_TAKEDOWNS_LANDED"],
+                bout_overall_item["RED_TAKEDOWNS_ATTEMPTED"],
             ) = extract_landed_attempted(stats[12])
             (
-                bout_item["BLUE_TAKEDOWNS_LANDED"],
-                bout_item["BLUE_TAKEDOWNS_ATTEMPTED"],
+                bout_overall_item["BLUE_TAKEDOWNS_LANDED"],
+                bout_overall_item["BLUE_TAKEDOWNS_ATTEMPTED"],
             ) = extract_landed_attempted(stats[13])
-            bout_item["RED_SUBMISSION_ATTEMPTS"] = int(stats[16])
-            bout_item["BLUE_SUBMISSION_ATTEMPTS"] = int(stats[17])
-            bout_item["RED_REVERSALS"] = int(stats[18])
-            bout_item["BLUE_REVERSALS"] = int(stats[19])
-            bout_item["RED_CONTROL_TIME_MINUTES"] = ctrl_time(stats[20])
-            bout_item["BLUE_CONTROL_TIME_MINUTES"] = ctrl_time(stats[21])
+            bout_overall_item["RED_SUBMISSION_ATTEMPTS"] = int(stats[16])
+            bout_overall_item["BLUE_SUBMISSION_ATTEMPTS"] = int(stats[17])
+            bout_overall_item["RED_REVERSALS"] = int(stats[18])
+            bout_overall_item["BLUE_REVERSALS"] = int(stats[19])
+            bout_overall_item["RED_CONTROL_TIME_MINUTES"] = ctrl_time(stats[20])
+            bout_overall_item["BLUE_CONTROL_TIME_MINUTES"] = ctrl_time(stats[21])
 
             sig_stats = [
                 x.strip()
                 for x in tables[2].css("p.b-fight-details__table-text::text").getall()
             ]
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[4])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[5])
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_HEAD_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_HEAD_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[8])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_HEAD_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_HEAD_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[9])
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_BODY_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_BODY_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_BODY_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_BODY_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[10])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_BODY_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_BODY_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_BODY_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_BODY_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[11])
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_LEG_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_LEG_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_LEG_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_LEG_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[12])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_LEG_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_LEG_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_LEG_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_LEG_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[13])
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_DISTANCE_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_DISTANCE_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[14])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_DISTANCE_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_DISTANCE_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[15])
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_CLINCH_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_CLINCH_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[16])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_CLINCH_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_CLINCH_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[17])
             (
-                bout_item["RED_SIGNIFICANT_STRIKES_GROUND_LANDED"],
-                bout_item["RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_GROUND_LANDED"],
+                bout_overall_item["RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[18])
             (
-                bout_item["BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED"],
-                bout_item["BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED"],
+                bout_overall_item["BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED"],
             ) = extract_landed_attempted(sig_stats[19])
 
             # Round by round
@@ -348,42 +407,47 @@ class UFCStatsSpider(Spider):
             assert len(stats_by_round_rows) == len(sig_stats_by_round_rows)
 
             for i in range(len(stats_by_round_rows)):
+                bout_round_item = UFCStatsBoutRoundItem()
+
+                bout_round_item["BOUT_ID"] = bout_overall_item["BOUT_ID"]
+                bout_round_item["EVENT_ID"] = bout_overall_item["EVENT_ID"]
+                bout_round_item["DATE"] = bout_overall_item["DATE"]
+                bout_round_item["BOUT_ORDINAL"] = bout_overall_item["BOUT_ORDINAL"]
+
+                bout_round_item["ROUND"] = i + 1
+
                 stats_for_round = [
                     x.strip()
                     for x in stats_by_round_rows[i]
                     .css("p.b-fight-details__table-text::text")
                     .getall()
                 ]
-                bout_item[f"RED_KNOCKDOWNS_ROUND_{i+1}"] = int(stats_for_round[4])
-                bout_item[f"BLUE_KNOCKDOWNS_ROUND_{i+1}"] = int(stats_for_round[5])
+                bout_round_item["RED_KNOCKDOWNS"] = int(stats_for_round[4])
+                bout_round_item["BLUE_KNOCKDOWNS"] = int(stats_for_round[5])
                 (
-                    bout_item[f"RED_TOTAL_STRIKES_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_TOTAL_STRIKES_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_TOTAL_STRIKES_LANDED"],
+                    bout_round_item["RED_TOTAL_STRIKES_ATTEMPTED"],
                 ) = extract_landed_attempted(stats_for_round[10])
                 (
-                    bout_item[f"BLUE_TOTAL_STRIKES_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_TOTAL_STRIKES_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_TOTAL_STRIKES_LANDED"],
+                    bout_round_item["BLUE_TOTAL_STRIKES_ATTEMPTED"],
                 ) = extract_landed_attempted(stats_for_round[11])
                 (
-                    bout_item[f"RED_TAKEDOWNS_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_TAKEDOWNS_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_TAKEDOWNS_LANDED"],
+                    bout_round_item["RED_TAKEDOWNS_ATTEMPTED"],
                 ) = extract_landed_attempted(stats_for_round[12])
                 (
-                    bout_item[f"BLUE_TAKEDOWNS_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_TAKEDOWNS_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_TAKEDOWNS_LANDED"],
+                    bout_round_item["BLUE_TAKEDOWNS_ATTEMPTED"],
                 ) = extract_landed_attempted(stats_for_round[13])
-                bout_item[f"RED_SUBMISSION_ATTEMPTS_ROUND_{i+1}"] = int(
-                    stats_for_round[16]
-                )
-                bout_item[f"BLUE_SUBMISSION_ATTEMPTS_ROUND_{i+1}"] = int(
-                    stats_for_round[17]
-                )
-                bout_item[f"RED_REVERSALS_ROUND_{i+1}"] = int(stats_for_round[18])
-                bout_item[f"BLUE_REVERSALS_ROUND_{i+1}"] = int(stats_for_round[19])
-                bout_item[f"RED_CONTROL_TIME_MINUTES_ROUND_{i+1}"] = ctrl_time(
+                bout_round_item["RED_SUBMISSION_ATTEMPTS"] = int(stats_for_round[16])
+                bout_round_item["BLUE_SUBMISSION_ATTEMPTS"] = int(stats_for_round[17])
+                bout_round_item["RED_REVERSALS"] = int(stats_for_round[18])
+                bout_round_item["BLUE_REVERSALS"] = int(stats_for_round[19])
+                bout_round_item["RED_CONTROL_TIME_MINUTES"] = ctrl_time(
                     stats_for_round[20]
                 )
-                bout_item[f"BLUE_CONTROL_TIME_MINUTES_ROUND_{i+1}"] = ctrl_time(
+                bout_round_item["BLUE_CONTROL_TIME_MINUTES"] = ctrl_time(
                     stats_for_round[21]
                 )
 
@@ -394,71 +458,73 @@ class UFCStatsSpider(Spider):
                     .getall()
                 ]
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[4])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[5])
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_HEAD_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_HEAD_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[8])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_HEAD_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_HEAD_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[9])
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_BODY_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_BODY_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_BODY_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_BODY_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[10])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_BODY_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_BODY_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_BODY_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_BODY_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[11])
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_LEG_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_LEG_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_LEG_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_LEG_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[12])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_LEG_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_LEG_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_LEG_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_LEG_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[13])
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_DISTANCE_LANDED_ROUND_{i+1}"],
-                    bout_item[
-                        f"RED_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED_ROUND_{i+1}"
-                    ],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_DISTANCE_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[14])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_DISTANCE_LANDED_ROUND_{i+1}"],
-                    bout_item[
-                        f"BLUE_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED_ROUND_{i+1}"
-                    ],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_DISTANCE_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[15])
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_CLINCH_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_CLINCH_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[16])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_CLINCH_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_CLINCH_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[17])
                 (
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_GROUND_LANDED_ROUND_{i+1}"],
-                    bout_item[f"RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_GROUND_LANDED"],
+                    bout_round_item["RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[18])
                 (
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED_ROUND_{i+1}"],
-                    bout_item[f"BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED_ROUND_{i+1}"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED"],
+                    bout_round_item["BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED"],
                 ) = extract_landed_attempted(sig_stats_for_round[19])
 
-        yield bout_item
+                yield bout_round_item
+
+        yield bout_overall_item
 
 
 class UFCTapologySpider(Spider):
-    name = "ufc_tapology_spider"
+    """
+    Spider for scraping UFC bout and fighter data from Tapology
+    """
+
+    name = "tapology_spider"
     allowed_domains = ["tapology.com"]
     start_urls = [
         "https://www.tapology.com/fightcenter?group=ufc&schedule=results&sport=mma"
@@ -524,17 +590,14 @@ class UFCTapologySpider(Spider):
     def parse_bout(self, response):
         pass
 
-    def parse_fighter(self, response):
-        pass
+
+# class UFCRankingsSpider(Spider):
+#     pass
 
 
-class UFCRankingsSpider(Spider):
-    pass
+# class UpcomingEventSpider(Spider):
+#     pass
 
 
-class UpcomingEventSpider(Spider):
-    pass
-
-
-class FightOddsIOSpider(Spider):
-    pass
+# class FightOddsIOSpider(Spider):
+#     pass

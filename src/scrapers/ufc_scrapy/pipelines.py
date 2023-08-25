@@ -1,52 +1,91 @@
+"""
+This module contains the item pipelines for the various scrapers
+"""
+
 # standard library imports
-import os
-import sqlite3
 
 # third party imports
 import pandas as pd
 
 # local imports
-from src.scrapers.ufc_scrapy.items import BoutItem, FighterItem
+from src.databases.sqlite_facade import SQLiteFacade
+from src.scrapers.ufc_scrapy.items import (
+    UFCStatsBoutOverallItem,
+    UFCStatsBoutRoundItem,
+    UFCStatsFighterItem,
+)
 
 
-class FightersSQLitePipeline:
+class UFCStatsFightersPipeline:
+    """
+    Item pipeline for UFCStats fighter data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the pipeline class
+        """
+
+        self.scrape_type = None
+        self.rows = []  # for bulk insert
+        self.sqlite_facade = SQLiteFacade()
+
     def open_spider(self, spider):
-        self.rows = []
-        self.conn = sqlite3.connect(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "ufc.db"),
-            detect_types=sqlite3.PARSE_DECLTYPES,
-        )
-        self.cur = self.conn.cursor()
+        """
+        Open the spider
+        """
 
-        # Create FIGHTERS table
-        self.cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS FIGHTERS (
-                FIGHTER_ID TEXT PRIMARY KEY,
-                FIGHTER_NAME TEXT,
-                WINS INTEGER,
-                LOSSES INTEGER,
-                DRAWS INTEGER,
-                NO_CONTESTS INTEGER,
-                HEIGHT_INCHES REAL,
-                REACH_INCHES REAL,
-                FIGHTING_STANCE TEXT,
-                DATE_OF_BIRTH DATE
-            )
-            """
-        )
-
-        # Truncate FIGHTERS table
-        self.cur.execute("DELETE FROM FIGHTERS")
-        self.conn.commit()
+        assert spider.name == "ufcstats_spider"
+        self.sqlite_facade.create_table("UFCSTATS_FIGHTERS")
+        self.scrape_type = spider.scrape_type
+        assert isinstance(self.scrape_type, str)
 
     def process_item(self, item, spider):
-        if isinstance(item, FighterItem):
-            self.rows.append(item)
+        """
+        Process UFCStatsFighterItem objects
+        """
+
+        if isinstance(item, UFCStatsFighterItem):
+            if self.scrape_type == "all":
+                self.rows.append(item)
+            elif self.scrape_type == "most_recent":
+                self.sqlite_facade.cur.execute(
+                    """
+                    INSERT INTO UFCSTATS_FIGHTERS (
+                        FIGHTER_ID, 
+                        FIGHTER_NAME, 
+                        HEIGHT_INCHES, 
+                        REACH_INCHES, 
+                        FIGHTING_STANCE, 
+                        DATE_OF_BIRTH
+                    )
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (FIGHTER_ID) DO UPDATE SET
+                            FIGHTER_NAME = excluded.FIGHTER_NAME,
+                            HEIGHT_INCHES = excluded.HEIGHT_INCHES,
+                            REACH_INCHES = excluded.REACH_INCHES,
+                            FIGHTING_STANCE = excluded.FIGHTING_STANCE,
+                            DATE_OF_BIRTH = excluded.DATE_OF_BIRTH;
+                    """,
+                    (
+                        item["FIGHTER_ID"],
+                        item["FIGHTER_NAME"],
+                        item["HEIGHT_INCHES"],
+                        item["REACH_INCHES"],
+                        item["FIGHTING_STANCE"],
+                        item["DATE_OF_BIRTH"],
+                    ),
+                )
+                self.sqlite_facade.conn.commit()
+
         return item
 
     def close_spider(self, spider):
-        if self.rows:
+        """
+        Inserts the scraped data into the database and closes the spider
+        """
+
+        if self.rows and self.scrape_type == "all":
             fighters_df = pd.DataFrame(self.rows)
 
             # Sort by name
@@ -59,147 +98,174 @@ class FightersSQLitePipeline:
             fighters_df = fighters_df.sort_values(by=["last name", "first name"])
             fighters_df = fighters_df.drop(columns=["first name", "last name"])
 
+            # Truncate table
+            self.sqlite_facade.truncate_table("UFCSTATS_FIGHTERS")
+
             # Insert into database
-            fighters_df.to_sql("FIGHTERS", self.conn, if_exists="append", index=False)
+            self.sqlite_facade.insert_into_table(fighters_df, "UFCSTATS_FIGHTERS")
 
-        self.conn.commit()
-        self.conn.close()
+        self.sqlite_facade.close_connection()
 
 
-class BoutsSQLitePipeline:
+class UFCStatsBoutsOverallPipeline:
+    """
+    Item pipeline for UFCStats overall bout data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the pipeline class
+        """
+
+        self.scrape_type = None
+        self.rows = []  # for bulk insert
+        self.sqlite_facade = SQLiteFacade()
+
     def open_spider(self, spider):
-        self.rows = []
-        self.conn = sqlite3.connect(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "ufc.db"),
-            detect_types=sqlite3.PARSE_DECLTYPES,
-        )
-        self.cur = self.conn.cursor()
+        """
+        Open the spider
+        """
 
-        stats_base_names = [
-            "KNOCKDOWNS",
-            "TOTAL_STRIKES",
-            "TAKEDOWNS",
-            "SUBMISSION_ATTEMPTS",
-            "REVERSALS",
-            "CONTROL_TIME_MINUTES",
-            "SIGNIFICANT_STRIKES",
-            "SIGNIFICANT_STRIKES_HEAD",
-            "SIGNIFICANT_STRIKES_BODY",
-            "SIGNIFICANT_STRIKES_LEG",
-            "SIGNIFICANT_STRIKES_DISTANCE",
-            "SIGNIFICANT_STRIKES_CLINCH",
-            "SIGNIFICANT_STRIKES_GROUND",
-        ]
-
-        overall_stats_names = []
-        for stat in stats_base_names:
-            for corner in ["RED", "BLUE"]:
-                if stat == "CONTROL_TIME_MINUTES":
-                    overall_stats_names.append(f"{corner}_{stat} REAL")
-                elif stat in {
-                    "KNOCKDOWNS",
-                    "SUBMISSION_ATTEMPTS",
-                    "REVERSALS",
-                }:
-                    overall_stats_names.append(f"{corner}_{stat} INTEGER")
-                else:
-                    for type in ["LANDED", "ATTEMPTED"]:
-                        overall_stats_names.append(f"{corner}_{stat}_{type} INTEGER")
-
-        round_by_round_stats_names = []
-        for round in range(1, 6):
-            for stat in stats_base_names:
-                for corner in ["RED", "BLUE"]:
-                    if stat == "CONTROL_TIME_MINUTES":
-                        round_by_round_stats_names.append(
-                            f"{corner}_{stat}_ROUND_{round} REAL"
-                        )
-                    elif stat in {
-                        "KNOCKDOWNS",
-                        "SUBMISSION_ATTEMPTS",
-                        "REVERSALS",
-                    }:
-                        round_by_round_stats_names.append(
-                            f"{corner}_{stat}_ROUND_{round} INTEGER"
-                        )
-                    else:
-                        for type in ["LANDED", "ATTEMPTED"]:
-                            round_by_round_stats_names.append(
-                                f"{corner}_{stat}_{type}_ROUND_{round} INTEGER"
-                            )
-
-        # Create BOUTS_OVERALL table
-        self.cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS BOUTS_OVERALL (
-                BOUT_ID TEXT PRIMARY KEY,
-                EVENT_ID TEXT,
-                EVENT_NAME TEXT,
-                DATE DATE,
-                LOCATION TEXT,
-                RED_FIGHTER_ID TEXT,
-                BLUE_FIGHTER_ID TEXT,
-                RED_FIGHTER_NAME TEXT,
-                BLUE_FIGHTER_NAME TEXT,
-                RED_OUTCOME TEXT,
-                BLUE_OUTCOME TEXT,
-                BOUT_TYPE TEXT,
-                OUTCOME_METHOD TEXT,
-                OUTCOME_METHOD_DETAILS TEXT,
-                END_ROUND INTEGER,
-                END_ROUND_TIME_MINUTES REAL,
-                BOUT_TIME_FORMAT TEXT,
-                TOTAL_TIME_MINUTES REAL,
-                {", ".join(overall_stats_names)}
-            )
-            """
-        )
-
-        # Create BOUTS_BY_ROUND table
-        self.cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS BOUTS_BY_ROUND (
-                BOUT_ID TEXT PRIMARY KEY,
-                {", ".join(round_by_round_stats_names)}
-            )
-            """
-        )
-
-        # Truncate tables
-        self.cur.execute("DELETE FROM BOUTS_OVERALL")
-        self.cur.execute("DELETE FROM BOUTS_BY_ROUND")
-        self.conn.commit()
+        assert spider.name == "ufcstats_spider"
+        self.sqlite_facade.create_table("UFCSTATS_BOUTS_OVERALL")
+        self.scrape_type = spider.scrape_type
+        assert isinstance(self.scrape_type, str)
 
     def process_item(self, item, spider):
-        if isinstance(item, BoutItem):
+        """
+        Process UFCStatsBoutOverallItem objects
+        """
+
+        if isinstance(item, UFCStatsBoutOverallItem):
             self.rows.append(item)
+
         return item
 
     def close_spider(self, spider):
+        """
+        Inserts the scraped data into the database and closes the spider
+        """
+
         if self.rows:
-            bouts_df = pd.DataFrame(self.rows)
-
-            # Sort by date and bout ordinal within each event
-            bouts_df = bouts_df.sort_values(by=["DATE", "EVENT_NAME", "BOUT_ORDINAL"])
-            bouts_df = bouts_df.drop(columns=["BOUT_ORDINAL"])
-
-            # Split into different tables/views
-            round_suffixes = [f"_ROUND_{i}" for i in range(1, 6)]
-            by_round_columns = [
-                col
-                for col in bouts_df.columns
-                if any([col.endswith(suffix) for suffix in round_suffixes])
-            ]
-            bouts_overall_df = bouts_df.drop(columns=by_round_columns)
-            bouts_by_round_df = bouts_df[["BOUT_ID"] + by_round_columns]
-
-            # Insert into database
-            bouts_overall_df.to_sql(
-                "BOUTS_OVERALL", self.conn, if_exists="append", index=False
+            bouts_overall_df = pd.DataFrame(self.rows)
+            bouts_overall_df = bouts_overall_df.sort_values(
+                by=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
             )
-            bouts_by_round_df.to_sql(
-                "BOUTS_BY_ROUND", self.conn, if_exists="append", index=False
+            bouts_overall_df = bouts_overall_df.drop(columns=["BOUT_ORDINAL"])
+
+            if self.scrape_type == "all":
+                # Truncate table
+                self.sqlite_facade.truncate_table("UFCSTATS_BOUTS_OVERALL")
+
+                # Insert into database
+                self.sqlite_facade.insert_into_table(
+                    bouts_overall_df, "UFCSTATS_BOUTS_OVERALL"
+                )
+            elif self.scrape_type == "most_recent":
+                # Check if the event already exists in the database
+                assert len(bouts_overall_df["EVENT_ID"].unique()) == 1
+
+                most_recent_event_id = bouts_overall_df["EVENT_ID"].unique()[0]
+                temp = pd.read_sql_query(
+                    """
+                    SELECT
+                        EVENT_ID
+                    FROM
+                        UFCSTATS_BOUTS_OVERALL
+                    WHERE
+                        EVENT_ID = (?);
+                    """,
+                    self.sqlite_facade.conn,
+                    params=[most_recent_event_id],
+                )
+
+                if temp.empty:
+                    # Insert into database
+                    self.sqlite_facade.insert_into_table(
+                        bouts_overall_df, "UFCSTATS_BOUTS_OVERALL"
+                    )
+
+        self.sqlite_facade.close_connection()
+
+
+class UFCStatsBoutsByRoundPipeline:
+    """
+    Item pipeline for UFCStats bout data by round
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the pipeline class
+        """
+
+        self.scrape_type = None
+        self.rows = []  # for bulk insert
+        self.sqlite_facade = SQLiteFacade()
+
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
+
+        assert spider.name == "ufcstats_spider"
+        self.sqlite_facade.create_table("UFCSTATS_BOUTS_BY_ROUND")
+        self.scrape_type = spider.scrape_type
+        assert isinstance(self.scrape_type, str)
+
+    def process_item(self, item, spider):
+        """
+        Process UFCStatsBoutRoundItem objects
+        """
+
+        if isinstance(item, UFCStatsBoutRoundItem):
+            self.rows.append(item)
+
+        return item
+
+    def close_spider(self, spider):
+        """
+        Inserts the scraped data into the database and closes the spider
+        """
+
+        if self.rows:
+            bouts_by_round_df = pd.DataFrame(self.rows)
+            bouts_by_round_df = bouts_by_round_df.sort_values(
+                by=["DATE", "EVENT_ID", "BOUT_ORDINAL", "ROUND"]
+            )
+            bouts_by_round_df = bouts_by_round_df.drop(
+                columns=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
             )
 
-        self.conn.commit()
-        self.conn.close()
+            if self.scrape_type == "all":
+                # Truncate table
+                self.sqlite_facade.truncate_table("UFCSTATS_BOUTS_BY_ROUND")
+
+                # Insert into database
+                self.sqlite_facade.insert_into_table(
+                    bouts_by_round_df, "UFCSTATS_BOUTS_BY_ROUND"
+                )
+            elif self.scrape_type == "most_recent":
+                # Check if bouts already exist in the database
+                filler = ", ".join(
+                    ["?" for _ in range(len(bouts_by_round_df["BOUT_ID"]))]
+                )
+                temp = pd.read_sql_query(
+                    f"""
+                    SELECT
+                        BOUT_ID
+                    FROM
+                        UFCSTATS_BOUTS_BY_ROUND
+                    WHERE
+                        BOUT_ID IN ({filler});
+                    """,
+                    self.sqlite_facade.conn,
+                    params=bouts_by_round_df["BOUT_ID"].tolist(),
+                )
+
+                if temp.empty:
+                    # Insert into database
+                    self.sqlite_facade.insert_into_table(
+                        bouts_by_round_df, "UFCSTATS_BOUTS_BY_ROUND"
+                    )
+
+        self.sqlite_facade.close_connection()
