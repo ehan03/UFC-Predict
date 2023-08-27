@@ -25,7 +25,7 @@ class SQLiteFacade:
         """
 
         self.conn = sqlite3.connect(
-            os.path.join(os.path.dirname(__file__), "..", "..", "data", "ufc.db"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "data", "ufc.db"),  # type: ignore
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         self.cur = self.conn.cursor()

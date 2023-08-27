@@ -131,10 +131,38 @@ CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE = """
                                 );
                                 """
 
+CREATE_TAPOLOGY_BOUTS_TABLE = """
+                                CREATE TABLE IF NOT EXISTS TAPOLOGY_BOUTS (
+                                    BOUT_ID INTEGER PRIMARY KEY,
+                                    EVENT_ID INTEGER,
+                                    EVENT_NAME TEXT,
+                                    DATE DATE,
+                                    REGION TEXT,
+                                    LOCATION TEXT,
+                                    VENUE TEXT,
+                                    BOUT_CARD_TYPE TEXT,
+                                    FIGHTER_1_ID TEXT,
+                                    FIGHTER_2_ID TEXT,
+                                    FIGHTER_1_NAME TEXT,
+                                    FIGHTER_2_NAME TEXT,
+                                    FIGHTER_1_RECORD_AT_BOUT TEXT,
+                                    FIGHTER_2_RECORD_AT_BOUT TEXT,
+                                    FIGHTER_1_NATIONALITY TEXT,
+                                    FIGHTER_2_NATIONALITY TEXT,
+                                    FIGHTER_1_HEIGHT_INCHES REAL,
+                                    FIGHTER_2_HEIGHT_INCHES REAL,
+                                    FIGHTER_1_REACH_INCHES REAL,
+                                    FIGHTER_2_REACH_INCHES REAL,
+                                    FIGHTER_1_GYM TEXT,
+                                    FIGHTER_2_GYM TEXT
+                                );
+                                """
+
 create_statement_map = {
     "UFCSTATS_FIGHTERS": CREATE_UFCSTATS_FIGHTERS_TABLE,
     "UFCSTATS_BOUTS_OVERALL": CREATE_UFCSTATS_BOUTS_OVERALL_TABLE,
     "UFCSTATS_BOUTS_BY_ROUND": CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE,
+    "TAPOLOGY_BOUTS": CREATE_TAPOLOGY_BOUTS_TABLE,
 }
 
 

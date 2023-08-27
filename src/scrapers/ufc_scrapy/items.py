@@ -151,3 +151,35 @@ class UFCStatsBoutRoundItem(Item):
     RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED = Field()
     BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED = Field()
     BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED = Field()
+
+
+class TapologyBoutItem(Item):
+    """
+    Item class for bout data from Tapology
+    """
+
+    BOUT_ID = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    REGION = Field()
+    LOCATION = Field()
+    VENUE = Field()
+    BOUT_ORDINAL = Field()
+    BOUT_CARD_TYPE = Field()
+
+    # Fighter info
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    FIGHTER_1_NAME = Field()
+    FIGHTER_2_NAME = Field()
+    FIGHTER_1_RECORD_AT_BOUT = Field()
+    FIGHTER_2_RECORD_AT_BOUT = Field()
+    FIGHTER_1_NATIONALITY = Field()
+    FIGHTER_2_NATIONALITY = Field()
+    FIGHTER_1_HEIGHT_INCHES = Field()
+    FIGHTER_2_HEIGHT_INCHES = Field()
+    FIGHTER_1_REACH_INCHES = Field()
+    FIGHTER_2_REACH_INCHES = Field()
+    FIGHTER_1_GYM = Field()
+    FIGHTER_2_GYM = Field()

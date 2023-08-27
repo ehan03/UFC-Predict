@@ -10,6 +10,7 @@ import pandas as pd
 # local imports
 from src.databases.sqlite_facade import SQLiteFacade
 from src.scrapers.ufc_scrapy.items import (
+    TapologyBoutItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
@@ -38,7 +39,6 @@ class UFCStatsFightersPipeline:
         assert spider.name == "ufcstats_spider"
         self.sqlite_facade.create_table("UFCSTATS_FIGHTERS")
         self.scrape_type = spider.scrape_type
-        assert isinstance(self.scrape_type, str)
 
     def process_item(self, item, spider):
         """
@@ -129,7 +129,6 @@ class UFCStatsBoutsOverallPipeline:
         assert spider.name == "ufcstats_spider"
         self.sqlite_facade.create_table("UFCSTATS_BOUTS_OVERALL")
         self.scrape_type = spider.scrape_type
-        assert isinstance(self.scrape_type, str)
 
     def process_item(self, item, spider):
         """
@@ -210,7 +209,6 @@ class UFCStatsBoutsByRoundPipeline:
         assert spider.name == "ufcstats_spider"
         self.sqlite_facade.create_table("UFCSTATS_BOUTS_BY_ROUND")
         self.scrape_type = spider.scrape_type
-        assert isinstance(self.scrape_type, str)
 
     def process_item(self, item, spider):
         """
@@ -267,5 +265,79 @@ class UFCStatsBoutsByRoundPipeline:
                     self.sqlite_facade.insert_into_table(
                         bouts_by_round_df, "UFCSTATS_BOUTS_BY_ROUND"
                     )
+
+        self.sqlite_facade.close_connection()
+
+
+class TapologyBoutsPipeline:
+    """
+    Item pipeline for Tapology bout data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the pipeline class
+        """
+
+        self.scrape_type = None
+        self.rows = []  # for bulk insert
+        self.sqlite_facade = SQLiteFacade()
+
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
+
+        assert spider.name == "tapology_spider"
+        self.sqlite_facade.create_table("TAPOLOGY_BOUTS")
+        self.scrape_type = spider.scrape_type
+
+    def process_item(self, item, spider):
+        """
+        Process TapologyBoutItem objects
+        """
+
+        if isinstance(item, TapologyBoutItem):
+            self.rows.append(item)
+
+        return item
+
+    def close_spider(self, spider):
+        """
+        Inserts the scraped data into the database and closes the spider
+        """
+
+        if self.rows:
+            bouts_df = pd.DataFrame(self.rows)
+            bouts_df = bouts_df.sort_values(by=["DATE", "EVENT_ID", "BOUT_ORDINAL"])
+            bouts_df = bouts_df.drop(columns=["BOUT_ORDINAL"])
+
+            if self.scrape_type == "all":
+                # Truncate table
+                self.sqlite_facade.truncate_table("TAPOLOGY_BOUTS")
+
+                # Insert into database
+                self.sqlite_facade.insert_into_table(bouts_df, "TAPOLOGY_BOUTS")
+            elif self.scrape_type == "most_recent":
+                # Check if the event already exists in the database
+                assert len(bouts_df["EVENT_ID"].unique()) == 1
+
+                most_recent_event_id = bouts_df["EVENT_ID"].unique()[0]
+                temp = pd.read_sql_query(
+                    """
+                    SELECT
+                        EVENT_ID
+                    FROM
+                        TAPOLOGY_BOUTS
+                    WHERE
+                        EVENT_ID = (?);
+                    """,
+                    self.sqlite_facade.conn,
+                    params=[most_recent_event_id],
+                )
+
+                if temp.empty:
+                    # Insert into database
+                    self.sqlite_facade.insert_into_table(bouts_df, "TAPOLOGY_BOUTS")
 
         self.sqlite_facade.close_connection()

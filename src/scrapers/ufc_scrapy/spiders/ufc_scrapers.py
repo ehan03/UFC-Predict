@@ -15,6 +15,7 @@ from scrapy.spiders import Spider
 
 # local imports
 from src.scrapers.ufc_scrapy.items import (
+    TapologyBoutItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
@@ -44,6 +45,7 @@ class UFCStatsSpider(Spider):
         "ROBOTSTXT_OBEY": False,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
         "CONCURRENT_REQUESTS": 10,
+        "COOKIES_ENABLED": False,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -61,15 +63,17 @@ class UFCStatsSpider(Spider):
             "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
             "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
         },
+        "CLOSESPIDER_ERRORCOUNT": 1,
     }
 
-    def __init__(self, *args, scrape_type: str, **kwargs):
+    def __init__(self, *args, scrape_type, **kwargs):
         """
         Initialize UFCStatsSpider
 
         Parameters:
             most_recent_only (bool): Whether to only scrape the most recent event or all past events
         """
+
         super().__init__(*args, **kwargs)
         assert scrape_type in {"all", "most_recent"}
         self.scrape_type = scrape_type
@@ -84,12 +88,14 @@ class UFCStatsSpider(Spider):
 
         event_urls = ["http://ufcstats.com/event-details/6420efac0578988b"]
         event_urls.extend(
-            response.css(
-                """tr.b-statistics__table-row >
+            reversed(
+                response.css(
+                    """tr.b-statistics__table-row >
                 td.b-statistics__table-col >
                 i.b-statistics__table-content >
                 a.b-link.b-link_style_black::attr(href)"""
-            ).getall()
+                ).getall()
+            )
         )
 
         if self.scrape_type == "most_recent":
@@ -193,11 +199,11 @@ class UFCStatsSpider(Spider):
     def parse_bout(
         self,
         response,
-        event_id: str,
-        event_name: str,
-        date: str,
-        location: str,
-        bout_ordinal: int,
+        event_id,
+        event_name,
+        date,
+        location,
+        bout_ordinal,
     ):
         """
         Parses response from bout URL and yields BoutItem
@@ -519,7 +525,7 @@ class UFCStatsSpider(Spider):
         yield bout_overall_item
 
 
-class UFCTapologySpider(Spider):
+class TapologySpider(Spider):
     """
     Spider for scraping UFC bout and fighter data from Tapology
     """
@@ -531,8 +537,10 @@ class UFCTapologySpider(Spider):
     ]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
-        "DOWNLOAD_DELAY": 0.5,
-        "NUMBER_OF_PROXIES_TO_FETCH": 50,
+        "DOWNLOAD_DELAY": 10,
+        "COOKIES_ENABLED": False,
+        "NUMBER_OF_PROXIES_TO_FETCH": 100,
+        "CONCURRENT_REQUESTS": 5,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -546,49 +554,283 @@ class UFCTapologySpider(Spider):
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
         "RETRY_TIMES": 5,
+        "LOG_LEVEL": "DEBUG",
+        "ITEM_PIPELINES": {
+            "ufc_scrapy.pipelines.TapologyBoutsPipeline": 100,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
     }
 
+    def __init__(self, *args, scrape_type, **kwargs):
+        """
+        Initialize TapologySpider
+
+        Parameters:
+            most_recent_only (bool): Whether to only scrape the most recent event or all past events
+        """
+        super().__init__(*args, **kwargs)
+        assert scrape_type in {"all", "most_recent"}
+        self.scrape_type = scrape_type
+
     def parse(self, response):
-        events = response.css(
-            "section.fcListing > div.main > div.left > div.promotion > span.name > a::attr(href)"
-        )
-        event_urls = [response.urljoin(url.get()) for url in events]
+        """
+        Parses current page and yields requests for each event URL
+        """
 
-        yield from response.follow_all(event_urls, self.parse_event)
+        event_listings = response.css("section.fcListing > div.main > div.left")
+        event_urls = []
+        regions = []
+        for event_listing in event_listings:
+            event_urls.append(
+                response.urljoin(
+                    event_listing.css("div.promotion > span.name > a::attr(href)").get()
+                )
+            )
+            regions.append(
+                event_listing.css("div.geography > span.region > a::text").get()
+            )
+        assert len(event_urls) == len(regions)
 
-        pagination_headers = {
-            "X-Requested-With": "XMLHttpRequest",
-            "Accept": "*/*;q=0.5, text/javascript, application/javascript, application/ecmascript, application/x-ecmascript",
-        }
-        next_page = response.css("span.next > a::attr(href)")
-        next_page_url = [response.urljoin(url.get()) for url in next_page]
-        if next_page_url:
-            yield FormRequest(
-                url=next_page_url[0],
-                method="GET",
-                headers=pagination_headers,
-                callback=self.parse_next_page,
+        if self.scrape_type == "all":
+            for i, event_url in enumerate(event_urls):
+                yield response.follow(
+                    event_url,
+                    callback=self.parse_event,
+                    cb_kwargs={
+                        "region": regions[i],
+                    },
+                )
+
+            # Workaround for terrible Ajax pagination, part 1
+            pagination_headers = {
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": """*/*;q=0.5, text/javascript, application/javascript, 
+                            application/ecmascript, application/x-ecmascript""",
+            }
+            next_page = response.css("span.next > a::attr(href)")
+            next_page_url = [response.urljoin(url.get()) for url in next_page]
+            if next_page_url:
+                yield FormRequest(
+                    url=next_page_url[0],
+                    method="GET",
+                    headers=pagination_headers,
+                    callback=self.parse_next_page,
+                )
+        else:
+            yield response.follow(
+                event_urls[0],
+                callback=self.parse_event,
+                cb_kwargs={
+                    "region": regions[0],
+                },
             )
 
     def parse_next_page(self, response):
+        """
+        Parses the response for the next page from the form request
+        and yields an actually usable response body
+        """
+
+        # Workaround, part 2
         data = response.text
         data = re.search(r"html\((.*)\);", data)
         assert data is not None
         data = data.group(1)
         data = unescape(literal_eval(data)).replace(r"\/", "/")
 
-        yield from self.parse(response.replace(body=data))
+        yield from self.parse(response.replace(body=data))  # type: ignore
 
-    def parse_event(self, response):
+    def parse_event(self, response, region):
+        """
+        Parses response from event URL and yields requests for each bout URL
+        """
+
         bouts = response.css(
             "div.fightCardMatchup > table > tr > td > span.billing > a::attr(href)"
         )
         bout_urls = [response.urljoin(url.get()) for url in bouts]
 
-        yield from response.follow_all(bout_urls, self.parse_bout)
+        link_tail = response.url.split("/")[-1]
+        event_id = int(link_tail.split("-")[0])
 
-    def parse_bout(self, response):
-        pass
+        event_name = response.css("div.eventPageHeaderTitles > h1::text").get().strip()
+
+        event_info_list = [
+            w3lib.html.remove_tags(x).strip()
+            for x in response.css(
+                "div.details.details_with_poster.clearfix > div.right > ul.clearfix > li"
+            ).getall()
+        ]
+
+        date = location = venue = None
+        for i, info in enumerate(event_info_list):
+            if i == 0:
+                date = pd.to_datetime(info.split(" ")[1]).strftime("%Y-%m-%d")
+            elif info.startswith("Location:"):
+                location_raw = info.replace("Location:", "").strip()
+                if location_raw:
+                    location = location_raw
+            elif info.startswith("Venue:"):
+                venue_raw = info.replace("Venue:", "").strip()
+                if venue_raw:
+                    venue = venue_raw
+
+        for bout_ordinal, bout_url in enumerate(reversed(bout_urls)):
+            yield response.follow(
+                bout_url,
+                callback=self.parse_bout,
+                cb_kwargs={
+                    "event_id": event_id,
+                    "event_name": event_name,
+                    "date": date,
+                    "region": region,
+                    "location": location,
+                    "venue": venue,
+                    "bout_ordinal": bout_ordinal,
+                },
+            )
+
+    def parse_bout(
+        self,
+        response,
+        event_id,
+        event_name,
+        date,
+        region,
+        location,
+        venue,
+        bout_ordinal,
+    ):
+        """
+        Parses response from bout URL and yields TapologyBoutItem
+        """
+
+        bout_item = TapologyBoutItem()
+
+        link_tail = response.url.split("/")[-1]
+        bout_id = int(link_tail.split("-")[0])
+
+        bout_item["BOUT_ID"] = bout_id
+        bout_item["EVENT_ID"] = event_id
+        bout_item["EVENT_NAME"] = event_name
+        bout_item["DATE"] = date
+        bout_item["REGION"] = region
+        bout_item["LOCATION"] = location
+        bout_item["VENUE"] = venue
+        bout_item["BOUT_ORDINAL"] = bout_ordinal
+
+        bout_preresult = (
+            response.css("h4.boutPreResult::text").get().split(" | ")[0].strip()
+        )
+        if bout_preresult == "Preliminary Card":
+            bout_item["BOUT_CARD_TYPE"] = "Prelim"
+        else:
+            bout_item["BOUT_CARD_TYPE"] = "Main"
+
+        # Fighter info
+        bout_item["FIGHTER_1_ID"] = (
+            response.css("span.fName.left > a::attr(href)").get().split("/")[-1]
+        )
+        bout_item["FIGHTER_2_ID"] = (
+            response.css("span.fName.right > a::attr(href)").get().split("/")[-1]
+        )
+        bout_item["FIGHTER_1_NAME"] = (
+            response.css("span.fName.left > a::text").get().strip()
+        )
+        bout_item["FIGHTER_2_NAME"] = (
+            response.css("span.fName.right > a::text").get().strip()
+        )
+
+        stats_table_rows = response.css("table.fighterStats.spaced > tr")
+        for row in stats_table_rows:
+            values = row.css("td").getall()
+            assert len(values) == 5
+            f1_stat = w3lib.html.remove_tags(values[0]).strip()
+            stat_category = w3lib.html.remove_tags(values[2]).strip()
+            f2_stat = w3lib.html.remove_tags(values[4]).strip()
+
+            if stat_category == "Pro Record At Fight":
+                bout_item["FIGHTER_1_RECORD_AT_BOUT"] = f1_stat if f1_stat else None
+                bout_item["FIGHTER_2_RECORD_AT_BOUT"] = f2_stat if f2_stat else None
+            elif stat_category == "Nationality":
+                bout_item["FIGHTER_1_NATIONALITY"] = f1_stat if f1_stat else None
+                bout_item["FIGHTER_2_NATIONALITY"] = f2_stat if f2_stat else None
+            elif stat_category == "Height":
+                bout_item["FIGHTER_1_HEIGHT_INCHES"] = (
+                    convert_height(f1_stat.split(" ")[0].replace("'", "' "))
+                    if (f1_stat and f1_stat != "N/A")
+                    else None
+                )
+                bout_item["FIGHTER_2_HEIGHT_INCHES"] = (
+                    convert_height(f2_stat.split(" ")[0].replace("'", "' "))
+                    if (f2_stat and f2_stat != "N/A")
+                    else None
+                )
+            elif stat_category == "Reach":
+                bout_item["FIGHTER_1_REACH_INCHES"] = (
+                    float(f1_stat.split(" ")[0].replace('"', ""))
+                    if (f1_stat and f1_stat != "N/A")
+                    else None
+                )
+                bout_item["FIGHTER_2_REACH_INCHES"] = (
+                    float(f2_stat.split(" ")[0].replace('"', ""))
+                    if (f2_stat and f2_stat != "N/A")
+                    else None
+                )
+            elif stat_category == "Gym":
+                if f1_stat:
+                    f1_gym_list = f1_stat.split("\n\n")
+                    if len(f1_gym_list) > 1:
+                        f1_possible_gyms = []
+                        f1_flag = False
+                        for f1_gym in f1_gym_list:
+                            if "(Primary)" in f1_gym:
+                                bout_item["FIGHTER_1_GYM"] = f1_gym.replace(
+                                    "(Primary)", ""
+                                ).strip()
+                                f1_flag = True
+                                break
+
+                            if "(Other)" in f1_gym:
+                                continue
+                            f1_possible_gyms.append(f1_gym)
+
+                        if f1_possible_gyms and not f1_flag:
+                            bout_item["FIGHTER_1_GYM"] = (
+                                f1_possible_gyms[-1].split("(")[0].strip()
+                            )
+                    else:
+                        bout_item["FIGHTER_1_GYM"] = f1_gym_list[0]
+                else:
+                    bout_item["FIGHTER_1_GYM"] = None
+
+                if f2_stat:
+                    f2_gym_list = f2_stat.split("\n\n")
+                    f2_flag = False
+                    if len(f2_gym_list) > 1:
+                        f2_possible_gyms = []
+                        for f2_gym in f2_gym_list:
+                            if "(Primary)" in f2_gym:
+                                bout_item["FIGHTER_2_GYM"] = f2_gym.replace(
+                                    "(Primary)", ""
+                                ).strip()
+                                f2_flag = True
+                                break
+
+                            if "(Other)" in f2_gym:
+                                continue
+                            f2_possible_gyms.append(f2_gym)
+
+                        if f2_possible_gyms and not f2_flag:
+                            bout_item["FIGHTER_2_GYM"] = (
+                                f2_possible_gyms[-1].split("(")[0].strip()
+                            )
+                    else:
+                        bout_item["FIGHTER_2_GYM"] = f2_gym_list[0]
+                else:
+                    bout_item["FIGHTER_2_GYM"] = None
+
+        yield bout_item
 
 
 # class UFCRankingsSpider(Spider):
