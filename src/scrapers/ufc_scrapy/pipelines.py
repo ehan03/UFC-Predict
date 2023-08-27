@@ -341,3 +341,15 @@ class TapologyBoutsPipeline:
                     self.sqlite_facade.insert_into_table(bouts_df, "TAPOLOGY_BOUTS")
 
         self.sqlite_facade.close_connection()
+
+
+class UFCRankingsPipeline:
+    """
+    Item pipeline for UFC rankings data
+    """
+
+
+class UFCStatsUpcomingEventPipeline:
+    """
+    Item pipeline for upcoming event data from UFCStats
+    """

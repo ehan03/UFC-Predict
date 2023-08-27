@@ -833,13 +833,43 @@ class TapologySpider(Spider):
         yield bout_item
 
 
-# class UFCRankingsSpider(Spider):
-#     pass
+class UFCRankingsSpider(Spider):
+    """
+    Spider for scraping UFC rankings from UFC.com
+    """
+
+    name = "ufc_rankings_spider"
+    allowed_domains = ["ufc.com"]
+    start_urls = ["https://www.ufc.com/rankings"]
 
 
-# class UpcomingEventSpider(Spider):
-#     pass
+class UFCStatsUpcomingEventSpider(Spider):
+    """
+    Spider for scraping upcoming UFC event from UFCStats
+    """
+
+    name = "ufcstats_upcoming_event_spider"
+    allowed_domains = ["ufcstats.com"]
+    start_urls = ["http://ufcstats.com/statistics/events/upcoming"]
 
 
-# class FightOddsIOSpider(Spider):
-#     pass
+class TapologyUpcomingEventSpider(Spider):
+    """
+    Spider for scraping upcoming UFC event from Tapology
+    """
+
+    name = "tapology_upcoming_event_spider"
+    allowed_domains = ["tapology.com"]
+    start_urls = [
+        "https://www.tapology.com/fightcenter?group=ufc&schedule=upcoming&sport=mma"
+    ]
+
+
+class FightOddsIOSpider(Spider):
+    """
+    Spider for scraping betting odds from FightOdds.io
+    """
+
+    name = "fightoddsio_spider"
+    allowed_domains = ["fightodds.io"]
+    start_urls = ["https://fightodds.io/upcoming-mma-events/ufc"]

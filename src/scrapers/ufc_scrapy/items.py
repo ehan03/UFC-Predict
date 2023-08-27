@@ -183,3 +183,14 @@ class TapologyBoutItem(Item):
     FIGHTER_2_REACH_INCHES = Field()
     FIGHTER_1_GYM = Field()
     FIGHTER_2_GYM = Field()
+
+
+class UFCRankingsItem(Item):
+    """
+    Item class for UFC rankings data
+    """
+
+    DATE = Field()
+    WEIGHT_CLASS = Field()
+    RANK = Field()
+    FIGHTER_NAME = Field()
