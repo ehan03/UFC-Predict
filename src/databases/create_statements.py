@@ -133,8 +133,8 @@ CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE = """
 
 CREATE_TAPOLOGY_BOUTS_TABLE = """
                                 CREATE TABLE IF NOT EXISTS TAPOLOGY_BOUTS (
-                                    BOUT_ID INTEGER PRIMARY KEY,
-                                    EVENT_ID INTEGER,
+                                    BOUT_ID TEXT PRIMARY KEY,
+                                    EVENT_ID TEXT,
                                     EVENT_NAME TEXT,
                                     DATE DATE,
                                     REGION TEXT,
@@ -149,6 +149,8 @@ CREATE_TAPOLOGY_BOUTS_TABLE = """
                                     FIGHTER_2_RECORD_AT_BOUT TEXT,
                                     FIGHTER_1_NATIONALITY TEXT,
                                     FIGHTER_2_NATIONALITY TEXT,
+                                    FIGHTER_1_WEIGHT_POUNDS REAL,
+                                    FIGHTER_2_WEIGHT_POUNDS REAL,
                                     FIGHTER_1_HEIGHT_INCHES REAL,
                                     FIGHTER_2_HEIGHT_INCHES REAL,
                                     FIGHTER_1_REACH_INCHES REAL,

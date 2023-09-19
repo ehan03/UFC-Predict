@@ -312,13 +312,7 @@ class TapologyBoutsPipeline:
             bouts_df = bouts_df.sort_values(by=["DATE", "EVENT_ID", "BOUT_ORDINAL"])
             bouts_df = bouts_df.drop(columns=["BOUT_ORDINAL"])
 
-            if self.scrape_type == "all":
-                # Truncate table
-                self.sqlite_facade.truncate_table("TAPOLOGY_BOUTS")
-
-                # Insert into database
-                self.sqlite_facade.insert_into_table(bouts_df, "TAPOLOGY_BOUTS")
-            elif self.scrape_type == "most_recent":
+            if self.scrape_type == "most_recent":
                 # Check if the event already exists in the database
                 assert len(bouts_df["EVENT_ID"].unique()) == 1
 
@@ -339,6 +333,9 @@ class TapologyBoutsPipeline:
                 if temp.empty:
                     # Insert into database
                     self.sqlite_facade.insert_into_table(bouts_df, "TAPOLOGY_BOUTS")
+            else:
+                # Insert into database
+                self.sqlite_facade.insert_into_table(bouts_df, "TAPOLOGY_BOUTS")
 
         self.sqlite_facade.close_connection()
 

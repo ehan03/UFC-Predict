@@ -6,6 +6,7 @@ This module contains all the spiders for scraping UFC data.
 import re
 from ast import literal_eval
 from html import unescape
+from urllib.parse import parse_qs, urlparse
 
 # third party imports
 import pandas as pd
@@ -19,6 +20,7 @@ from src.scrapers.ufc_scrapy.items import (
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
+    UFCStatsUpcomingBoutItem,
 )
 from src.scrapers.ufc_scrapy.utils import (
     convert_height,
@@ -538,14 +540,11 @@ class TapologySpider(Spider):
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
         "DOWNLOAD_DELAY": 10,
-        "COOKIES_ENABLED": False,
-        "NUMBER_OF_PROXIES_TO_FETCH": 100,
-        "CONCURRENT_REQUESTS": 5,
+        "DOWNLOAD_TIMEOUT": 600,
+        "CONCURRENT_REQUESTS": 1,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
-            "rotating_free_proxies.middlewares.RotatingProxyMiddleware": 610,
-            "rotating_free_proxies.middlewares.BanDetectionMiddleware": 620,
         },
         "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
         "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
@@ -553,8 +552,8 @@ class TapologySpider(Spider):
         "DEPTH_PRIORITY": 1,
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        "RETRY_TIMES": 5,
-        "LOG_LEVEL": "DEBUG",
+        "RETRY_TIMES": 3,
+        "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             "ufc_scrapy.pipelines.TapologyBoutsPipeline": 100,
         },
@@ -564,12 +563,11 @@ class TapologySpider(Spider):
     def __init__(self, *args, scrape_type, **kwargs):
         """
         Initialize TapologySpider
-
-        Parameters:
-            most_recent_only (bool): Whether to only scrape the most recent event or all past events
         """
+
         super().__init__(*args, **kwargs)
-        assert scrape_type in {"all", "most_recent"}
+
+        # Scrape data for a particular page on the start URL or the most recent event
         self.scrape_type = scrape_type
 
     def parse(self, response):
@@ -591,31 +589,52 @@ class TapologySpider(Spider):
             )
         assert len(event_urls) == len(regions)
 
-        if self.scrape_type == "all":
-            for i, event_url in enumerate(event_urls):
-                yield response.follow(
-                    event_url,
-                    callback=self.parse_event,
-                    cb_kwargs={
-                        "region": regions[i],
-                    },
-                )
+        if "page_" in self.scrape_type:
+            page_num = int(self.scrape_type.split("_")[1])
+            assert page_num > 0
 
-            # Workaround for terrible Ajax pagination, part 1
-            pagination_headers = {
-                "X-Requested-With": "XMLHttpRequest",
-                "Accept": """*/*;q=0.5, text/javascript, application/javascript, 
-                            application/ecmascript, application/x-ecmascript""",
-            }
-            next_page = response.css("span.next > a::attr(href)")
-            next_page_url = [response.urljoin(url.get()) for url in next_page]
-            if next_page_url:
-                yield FormRequest(
-                    url=next_page_url[0],
-                    method="GET",
-                    headers=pagination_headers,
-                    callback=self.parse_next_page,
-                )
+            if page_num == 1:
+                for i, event_url in enumerate(event_urls):
+                    yield response.follow(
+                        event_url,
+                        callback=self.parse_event,
+                        cb_kwargs={
+                            "region": regions[i],
+                        },
+                    )
+            else:
+                parsed_url = urlparse(response.url)
+
+                try:
+                    current_page = int(parse_qs(parsed_url.query)["page"][0])
+                except:
+                    current_page = 1
+
+                if current_page == page_num:
+                    for i, event_url in enumerate(event_urls):
+                        yield response.follow(
+                            event_url,
+                            callback=self.parse_event,
+                            cb_kwargs={
+                                "region": regions[i],
+                            },
+                        )
+                else:
+                    # Workaround for terrible Ajax pagination, part 1
+                    pagination_headers = {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": """*/*;q=0.5, text/javascript, application/javascript,
+                                    application/ecmascript, application/x-ecmascript""",
+                    }
+                    next_page = response.css("span.next > a::attr(href)")
+                    next_page_url = [response.urljoin(url.get()) for url in next_page]
+                    if next_page_url:
+                        yield FormRequest(
+                            url=next_page_url[0],
+                            method="GET",
+                            headers=pagination_headers,
+                            callback=self.parse_next_page,
+                        )
         else:
             yield response.follow(
                 event_urls[0],
@@ -635,7 +654,7 @@ class TapologySpider(Spider):
         data = response.text
         data = re.search(r"html\((.*)\);", data)
         assert data is not None
-        data = data.group(1)
+        data = data.group(1)  # type: ignore
         data = unescape(literal_eval(data)).replace(r"\/", "/")
 
         yield from self.parse(response.replace(body=data))  # type: ignore
@@ -650,11 +669,8 @@ class TapologySpider(Spider):
         )
         bout_urls = [response.urljoin(url.get()) for url in bouts]
 
-        link_tail = response.url.split("/")[-1]
-        event_id = int(link_tail.split("-")[0])
-
+        event_id = response.url.split("/")[-1]
         event_name = response.css("div.eventPageHeaderTitles > h1::text").get().strip()
-
         event_info_list = [
             w3lib.html.remove_tags(x).strip()
             for x in response.css(
@@ -665,7 +681,8 @@ class TapologySpider(Spider):
         date = location = venue = None
         for i, info in enumerate(event_info_list):
             if i == 0:
-                date = pd.to_datetime(info.split(" ")[1]).strftime("%Y-%m-%d")
+                raw_date = info.split(" ")[1]
+                date = pd.to_datetime(raw_date).strftime("%Y-%m-%d")
             elif info.startswith("Location:"):
                 location_raw = info.replace("Location:", "").strip()
                 if location_raw:
@@ -706,9 +723,7 @@ class TapologySpider(Spider):
         """
 
         bout_item = TapologyBoutItem()
-
-        link_tail = response.url.split("/")[-1]
-        bout_id = int(link_tail.split("-")[0])
+        bout_id = response.url.split("/")[-1]
 
         bout_item["BOUT_ID"] = bout_id
         bout_item["EVENT_ID"] = event_id
@@ -755,6 +770,17 @@ class TapologySpider(Spider):
             elif stat_category == "Nationality":
                 bout_item["FIGHTER_1_NATIONALITY"] = f1_stat if f1_stat else None
                 bout_item["FIGHTER_2_NATIONALITY"] = f2_stat if f2_stat else None
+            elif stat_category == "Weigh-In Result":
+                bout_item["FIGHTER_1_WEIGHT_POUNDS"] = (
+                    float(f1_stat.split(" ")[0])
+                    if (f1_stat and f1_stat != "N/A")
+                    else None
+                )
+                bout_item["FIGHTER_2_WEIGHT_POUNDS"] = (
+                    float(f2_stat.split(" ")[0])
+                    if (f2_stat and f2_stat != "N/A")
+                    else None
+                )
             elif stat_category == "Height":
                 bout_item["FIGHTER_1_HEIGHT_INCHES"] = (
                     convert_height(f1_stat.split(" ")[0].replace("'", "' "))
@@ -851,6 +877,71 @@ class UFCStatsUpcomingEventSpider(Spider):
     name = "ufcstats_upcoming_event_spider"
     allowed_domains = ["ufcstats.com"]
     start_urls = ["http://ufcstats.com/statistics/events/upcoming"]
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
+        "CONCURRENT_REQUESTS": 10,
+        "COOKIES_ENABLED": False,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 5,
+        "LOG_LEVEL": "INFO",
+        "ITEM_PIPELINES": {
+            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
+    }
+
+    def parse(self, response):
+        """
+        Parses current page and yields request for closest upcoming event
+        """
+
+        upcoming_event_url = response.css(
+            "i.b-statistics__table-content > a.b-link.b-link_style_black::attr(href)"
+        ).get()
+
+        yield response.follow(upcoming_event_url, callback=self.parse_upcoming_event)
+
+    def parse_upcoming_event(self, response):
+        """
+        Parses upcoming event page and yields requests for each upcoming bout
+        """
+
+        event_id = response.url.split("/")[-1]
+        event_name = (
+            response.css(
+                """h2.b-content__title > 
+                span.b-content__title-highlight::text"""
+            )
+            .get()
+            .strip()
+        )
+        date, location = [
+            x.strip()
+            for i, x in enumerate(
+                response.css("li.b-list__box-list-item::text").getall()
+            )
+            if i % 2 == 1
+        ]
+
+    def parse_upcoming_bout(self, response):
+        """
+        Parses upcoming bout page and yields UFCStatsUpcomingBoutItem
+        """
+        upcoming_bout_item = UFCStatsUpcomingBoutItem()
+
+        yield upcoming_bout_item
 
 
 class TapologyUpcomingEventSpider(Spider):

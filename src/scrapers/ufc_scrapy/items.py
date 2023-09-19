@@ -177,6 +177,8 @@ class TapologyBoutItem(Item):
     FIGHTER_2_RECORD_AT_BOUT = Field()
     FIGHTER_1_NATIONALITY = Field()
     FIGHTER_2_NATIONALITY = Field()
+    FIGHTER_1_WEIGHT_POUNDS = Field()
+    FIGHTER_2_WEIGHT_POUNDS = Field()
     FIGHTER_1_HEIGHT_INCHES = Field()
     FIGHTER_2_HEIGHT_INCHES = Field()
     FIGHTER_1_REACH_INCHES = Field()
@@ -194,3 +196,59 @@ class UFCRankingsItem(Item):
     WEIGHT_CLASS = Field()
     RANK = Field()
     FIGHTER_NAME = Field()
+
+
+class UFCStatsUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from UFCStats
+    """
+
+    BOUT_ID = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    BOUT_ORDINAL = Field()
+    RED_FIGHTER_ID = Field()
+    BLUE_FIGHTER_ID = Field()
+    BOUT_TYPE = Field()
+
+
+class TapologyUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from Tapology
+    """
+
+    BOUT_ID = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    REGION = Field()
+    LOCATION = Field()
+    VENUE = Field()
+    BOUT_ORDINAL = Field()
+    BOUT_CARD_TYPE = Field()
+    BOUT_TIME_FORMAT = Field()
+
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    FIGHTER_1_NAME = Field()
+    FIGHTER_2_NAME = Field()
+    FIGHTER_1_RECORD_AT_BOUT = Field()
+    FIGHTER_2_RECORD_AT_BOUT = Field()
+    FIGHTER_1_NATIONALITY = Field()
+    FIGHTER_2_NATIONALITY = Field()
+    FIGHTER_1_WEIGHT_POUNDS = Field()
+    FIGHTER_2_WEIGHT_POUNDS = Field()
+    FIGHTER_1_HEIGHT_INCHES = Field()
+    FIGHTER_2_HEIGHT_INCHES = Field()
+    FIGHTER_1_REACH_INCHES = Field()
+    FIGHTER_2_REACH_INCHES = Field()
+    FIGHTER_1_GYM = Field()
+    FIGHTER_2_GYM = Field()
+
+
+class FightOddsIOBoutItem:
+    """
+    Item class for odds data for upcoming bouts from FightOdds.io
+    """
