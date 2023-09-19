@@ -17,7 +17,6 @@ The next steps include:
 - [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds + minimum bet amount and maximum cashout constraints, will likely need convex optimization/gradient ascent algorithm)
 - [ ] Rigorously test strategy with prefight odds (not closing, likely at a designated time on Friday nights); I'm thinking of doing Monte Carlo simulations using the `predict_proba` outputs +/- Maximum Calibration Error (MCE) or similar + bootstrap methods
 - [ ] Create optimal ML pipeline, be more robust about feature selection
-- [ ] Look into database hosting (PlanetScale maybe?)
 - [ ] Automate entire process to start preparing for deployment
 
 ## Introduction
