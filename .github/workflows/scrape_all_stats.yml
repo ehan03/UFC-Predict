@@ -19,7 +19,7 @@ jobs:
                 pip install pandas numpy scrapy scrapy-user-agents
             
             - name: Run scraper
-              run: python pipeline_run.py scrape_ufc_stats
+              run: python pipeline_run.py results
         
             - name: Commit files
               run: |
