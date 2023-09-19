@@ -1,4 +1,4 @@
-name: Scrape UFCStats
+name: Results Pipeline
 
 on:
     workflow_dispatch:
