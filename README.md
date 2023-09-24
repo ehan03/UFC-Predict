@@ -1,33 +1,16 @@
 # UFC-Predict
 
-## To-Do's
-
-The current preliminary iteration of my model achieves the following scores:
-
-<div align="center">
-  
-| Log Loss | Brier Score Loss | Expected Calibration Error |
-| :------: | :--------------: | :------------------------: |
-| 0.652256 | 0.230223         | 0.032830                   |
-
-</div>
-
-The next steps include:
-
-- [ ] Develop betting strategy (modified simultaneous Kelly w/ uneven odds + minimum bet amount and maximum cashout constraints, will likely need convex optimization/gradient ascent algorithm)
-- [ ] Rigorously test strategy with prefight odds (not closing, likely at a designated time on Friday nights); I'm thinking of doing Monte Carlo simulations using the `predict_proba` outputs +/- Maximum Calibration Error (MCE) or similar + bootstrap methods
-- [ ] Create optimal ML pipeline, be more robust about feature selection
-- [ ] Automate entire process to start preparing for deployment
-
 ## Introduction
 
 As a long-time MMA fan and student studying statistics, I felt that working on a project involving data from UFC fighters and bouts as well as machine learning would be a great way to combine my interests and gain a deeper understanding of both the sport and the theory/application of data science. My goal for this project is to develop a model to predict well-calibrated probabilities of victory for each fighter in a given bout using statistics from previous fights. Using these probability outputs, I plan to build a betting strategy to beat bookmakers and exploit miscalibrated odds.
 
 ## Data
 
-The data used for building the model is scraped from [UFC Stats](http://www.ufcstats.com/statistics/events/completed) using `scrapy`. Data from Tapology is under consideration, but out of scope at this point in the project.
-
-For betting odds, as of right now I am using [FightOdds.io](https://fightodds.io/recent-mma-events/ufc) and the API it uses under the hood.
+As of writing, the project leverages data from the following sources:
+- [UFC Stats](http://ufcstats.com/statistics/events/completed): Bout and fighter statistics
+- [Tapology](https://www.tapology.com/fightcenter): Bout and fighter statistics, some of which are not available on the UFC Stats website
+- [UFC Rankings](https://www.ufc.com/rankings): Fighter rankings
+- [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc): Betting odds
 
 ## Background Information
 
