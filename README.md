@@ -20,7 +20,7 @@ As of writing, the project leverages data from the following sources:
 
 ### How Good are the Bookies?
 
-The following figure and table come from a sample of ~1300 bouts for five different and well-known bookmakers, and they capture important information regarding how well-calibrated the odds are for each bookmaker as well as their average house edge (which a bettor would need to overcome in order to consistently make profit).
+The following figure and table come from a sample of ~1300 bouts for five different and well-known bookmakers, and they capture important information regarding how well-calibrated the closing odds are for each bookmaker as well as their average house edge (which a bettor would need to overcome in order to consistently make profit).
 
 <div align="center">
 
@@ -28,7 +28,7 @@ The following figure and table come from a sample of ~1300 bouts for five differ
 
 </div>
 
-The adjusted implied probability refers to the red corner fighter's implied probability of victory factoring in the bookmaker's house edge. The number of bins used is 10. In general, we see that the calibration curves follow pretty closely to the ideal line, but there are some deviations near the tails, especially when the red corner fighter is an underdog.
+The adjusted implied probability refers to the red corner fighter's implied probability of victory factoring out the bookmaker's house edge. The number of bins used is 10. In general, we see that the calibration curves follow pretty closely to the ideal line, but there are some deviations near the tails, especially when the red corner fighter is an underdog.
 
 
 <div align="center">
@@ -43,8 +43,7 @@ The adjusted implied probability refers to the red corner fighter's implied prob
 
 </div>
 
-These provide a baseline for what I should try to beat with my model. It's pretty clear that the bookies' odds are pretty well-calibrated, but there can still be room for improvement.
-
+The idea is that if we can develop a model that produces probability predictions that are better calibrated than those from bookmakers, we have an edge.
 
 ---
 *This project is actively in development and a huge WIP. As such, the README will be updated accordingly.*
