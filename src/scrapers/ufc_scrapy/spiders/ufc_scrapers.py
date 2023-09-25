@@ -17,6 +17,7 @@ from scrapy.spiders import Spider
 # local imports
 from src.scrapers.ufc_scrapy.items import (
     TapologyBoutItem,
+    UFCRankingsItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
@@ -682,7 +683,7 @@ class TapologySpider(Spider):
         for i, info in enumerate(event_info_list):
             if i == 0:
                 raw_date = info.split(" ")[1]
-                date = pd.to_datetime(raw_date).strftime("%Y-%m-%d")
+                date = pd.to_datetime(raw_date).strftime("%Y-%m-%d")  # type: ignore
             elif info.startswith("Location:"):
                 location_raw = info.replace("Location:", "").strip()
                 if location_raw:
@@ -867,6 +868,74 @@ class UFCRankingsSpider(Spider):
     name = "ufc_rankings_spider"
     allowed_domains = ["ufc.com"]
     start_urls = ["https://www.ufc.com/rankings"]
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS": 1,
+        "COOKIES_ENABLED": False,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 5,
+        "LOG_LEVEL": "DEBUG",
+        "ITEM_PIPELINES": {
+            # "ufc_scrapy.pipelines.UFCRankingsPipeline": 100,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
+    }
+
+    def parse(self, response):
+        """
+        Parse rankings page and yield item for each fighter
+        """
+
+        date = pd.Timestamp.now(tz="US/Eastern").strftime("%Y-%m-%d")
+        ranking_groups = response.css("div.view-grouping")
+
+        for group in ranking_groups:
+            weight_class = group.css("div.info > h4::text").get().strip()
+            if "Pound-for-Pound" not in weight_class:
+                champion = group.css("div.info > h5 > a::text").get()
+                if champion:
+                    champion_name = champion.strip()
+
+                    champion_rankings_item = UFCRankingsItem()
+                    champion_rankings_item["DATE"] = date
+                    champion_rankings_item["WEIGHT_CLASS"] = weight_class
+                    champion_rankings_item["RANK"] = 0
+                    champion_rankings_item["FIGHTER_NAME"] = champion_name
+
+                    yield champion_rankings_item
+
+            rankings_table = group.css("tbody")
+            ranks = [
+                int(x)
+                for x in rankings_table.css(
+                    "td.views-field.views-field-weight-class-rank::text"
+                ).getall()
+            ]
+            fighter_names = [
+                x.strip()
+                for x in rankings_table.css(
+                    "td.views-field.views-field-title > a::text"
+                ).getall()
+            ]
+            assert len(ranks) == len(fighter_names)
+
+            for rank, fighter_name in zip(ranks, fighter_names):
+                rankings_item = UFCRankingsItem()
+                rankings_item["DATE"] = date
+                rankings_item["WEIGHT_CLASS"] = weight_class
+                rankings_item["RANK"] = rank
+                rankings_item["FIGHTER_NAME"] = fighter_name
+
+                yield rankings_item
 
 
 class UFCStatsUpcomingEventSpider(Spider):
@@ -964,3 +1033,31 @@ class FightOddsIOSpider(Spider):
     name = "fightoddsio_spider"
     allowed_domains = ["fightodds.io"]
     start_urls = ["https://fightodds.io/upcoming-mma-events/ufc"]
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS": 1,
+        "COOKIES_ENABLED": False,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 5,
+        "LOG_LEVEL": "INFO",
+        "ITEM_PIPELINES": {
+            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
+    }
+
+    def parse(self, response):
+        """
+        Parses current page and yields request for closest upcoming event
+        """
