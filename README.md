@@ -1,10 +1,8 @@
 # UFC-Predict
 
-## Motivation
+_Applying machine learning and optimization techniques to generate alpha in the UFC betting market_
 
-Apply machine learning and optimization techniques to generate alpha in the UFC betting market.
-
-## Background Information
+## Background
 
 ### The UFC
 
