@@ -1,18 +1,8 @@
 # UFC-Predict
 
-## Introduction
-
-As a long-time MMA fan and student studying statistics, I felt that working on a project involving data from UFC fighters and bouts as well as machine learning would be a great way to combine my interests and gain a deeper understanding of both the sport and the theory/application of data science. My goal for this project is to develop a model to predict well-calibrated probabilities of victory for each fighter in a given bout using statistics from previous fights. Using these probability outputs, I plan to build a betting strategy to beat bookmakers and exploit miscalibrated odds.
-
-## Data
-
-As of writing, the project leverages data from the following sources:
-- [UFC Stats](http://ufcstats.com/statistics/events/completed): Bout and fighter statistics
-- [Tapology](https://www.tapology.com/fightcenter): Bout and fighter statistics, some of which are not available on the UFC Stats website
-- [UFC Rankings](https://www.ufc.com/rankings): Fighter rankings
-- [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc): Betting odds
-
 ## Background Information
+
+### The UFC
 
 ### Betting Odds
 
@@ -44,6 +34,15 @@ The adjusted implied probability refers to the red corner fighter's implied prob
 </div>
 
 The idea is that if we can develop a model that produces probability predictions that are better calibrated than those from bookmakers, we have an edge.
+
+
+## Data
+
+As of writing, the project leverages data from the following sources:
+- [UFC Stats](http://ufcstats.com/statistics/events/completed): Bout and fighter statistics
+- [Tapology](https://www.tapology.com/fightcenter): Bout and fighter statistics, some of which are not available on the UFC Stats website
+- [UFC Rankings](https://www.ufc.com/rankings): Fighter rankings
+- [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc): Betting odds
 
 ---
 *This project is actively in development and a huge WIP. As such, the README will be updated accordingly.*
