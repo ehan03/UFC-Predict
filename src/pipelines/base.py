@@ -3,7 +3,7 @@
 # third party imports
 
 # local imports
-from src.databases.sqlite_facade import SQLiteFacade
+from src.databases.supabase_facade import SupabaseFacade
 
 
 class Pipeline:
@@ -16,4 +16,4 @@ class Pipeline:
         Initialize Pipeline class
         """
 
-        self.sqlite_facade = SQLiteFacade()
+        self.supabase_facade = SupabaseFacade()
