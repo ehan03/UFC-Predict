@@ -100,6 +100,7 @@ class UFCStatsBoutRoundItem(Item):
     Item class for round-by-round bout data from UFCStats
     """
 
+    BOUT_ROUND_ID = Field()
     BOUT_ID = Field()
     EVENT_ID = Field()
     DATE = Field()

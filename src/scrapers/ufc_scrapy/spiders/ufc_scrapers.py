@@ -63,8 +63,7 @@ class UFCStatsSpider(Spider):
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsBoutsPipeline": 100,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -422,8 +421,10 @@ class UFCStatsSpider(Spider):
                 bout_round_item["EVENT_ID"] = bout_overall_item["EVENT_ID"]
                 bout_round_item["DATE"] = bout_overall_item["DATE"]
                 bout_round_item["BOUT_ORDINAL"] = bout_overall_item["BOUT_ORDINAL"]
-
                 bout_round_item["ROUND"] = i + 1
+                bout_round_item["BOUT_ROUND_ID"] = (
+                    bout_round_item["BOUT_ID"] + "_" + str(bout_round_item["ROUND"])
+                )
 
                 stats_for_round = [
                     x.strip()
@@ -883,7 +884,7 @@ class UFCRankingsSpider(Spider):
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
         "RETRY_TIMES": 5,
-        "LOG_LEVEL": "DEBUG",
+        "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             # "ufc_scrapy.pipelines.UFCRankingsPipeline": 100,
         },
@@ -913,29 +914,29 @@ class UFCRankingsSpider(Spider):
 
                     yield champion_rankings_item
 
-            rankings_table = group.css("tbody")
-            ranks = [
-                int(x)
-                for x in rankings_table.css(
-                    "td.views-field.views-field-weight-class-rank::text"
-                ).getall()
-            ]
-            fighter_names = [
-                x.strip()
-                for x in rankings_table.css(
-                    "td.views-field.views-field-title > a::text"
-                ).getall()
-            ]
-            assert len(ranks) == len(fighter_names)
+                rankings_table = group.css("tbody")
+                ranks = [
+                    int(x)
+                    for x in rankings_table.css(
+                        "td.views-field.views-field-weight-class-rank::text"
+                    ).getall()
+                ]
+                fighter_names = [
+                    x.strip()
+                    for x in rankings_table.css(
+                        "td.views-field.views-field-title > a::text"
+                    ).getall()
+                ]
+                assert len(ranks) == len(fighter_names)
 
-            for rank, fighter_name in zip(ranks, fighter_names):
-                rankings_item = UFCRankingsItem()
-                rankings_item["DATE"] = date
-                rankings_item["WEIGHT_CLASS"] = weight_class
-                rankings_item["RANK"] = rank
-                rankings_item["FIGHTER_NAME"] = fighter_name
+                for rank, fighter_name in zip(ranks, fighter_names):
+                    rankings_item = UFCRankingsItem()
+                    rankings_item["DATE"] = date
+                    rankings_item["WEIGHT_CLASS"] = weight_class
+                    rankings_item["RANK"] = rank
+                    rankings_item["FIGHTER_NAME"] = fighter_name
 
-                yield rankings_item
+                    yield rankings_item
 
 
 class UFCStatsUpcomingEventSpider(Spider):
@@ -1023,6 +1024,7 @@ class TapologyUpcomingEventSpider(Spider):
     start_urls = [
         "https://www.tapology.com/fightcenter?group=ufc&schedule=upcoming&sport=mma"
     ]
+    custom_settings = {}
 
 
 class FightOddsIOSpider(Spider):
@@ -1033,29 +1035,7 @@ class FightOddsIOSpider(Spider):
     name = "fightoddsio_spider"
     allowed_domains = ["fightodds.io"]
     start_urls = ["https://fightodds.io/upcoming-mma-events/ufc"]
-    custom_settings = {
-        "ROBOTSTXT_OBEY": False,
-        "CONCURRENT_REQUESTS": 1,
-        "COOKIES_ENABLED": False,
-        "DOWNLOADER_MIDDLEWARES": {
-            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
-            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
-        },
-        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
-        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-        "FEED_EXPORT_ENCODING": "utf-8",
-        "DEPTH_PRIORITY": 1,
-        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
-        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        "RETRY_TIMES": 5,
-        "LOG_LEVEL": "INFO",
-        "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
-        },
-        "CLOSESPIDER_ERRORCOUNT": 1,
-    }
+    custom_settings = {}
 
     def parse(self, response):
         """
