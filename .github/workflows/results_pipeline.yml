@@ -17,8 +17,11 @@ jobs:
               run: |
                 python -m pip install --upgrade pip
                 pip install pandas numpy scrapy scrapy-user-agents
-            
+           
             - name: Run scraper
+              env:
+                SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+                SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
               run: python pipeline_run.py results
         
             - name: Commit files
