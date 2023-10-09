@@ -2,6 +2,12 @@
 
 _Applying machine learning and optimization techniques to generate alpha in the UFC betting market_
 
+
+TO-DO: MIGRATE TO PLANETSCALE (big code changes needed)
+- Create relevant tables in CLI, make sure to include bout ordinals as a column for ORDER BY statements
+- Figure out sqlalchemy
+- Rework entire set of Scrapy pipelines to follow new paradigm
+
 As of writing, the project leverages data from the following sources:
 - [UFC Stats](http://ufcstats.com/statistics/events/completed): Bout and fighter statistics
 - [Tapology](https://www.tapology.com/fightcenter): Bout and fighter statistics, some of which are not available on the UFC Stats website
