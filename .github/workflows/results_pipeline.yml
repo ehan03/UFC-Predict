@@ -1,16 +1,16 @@
-# name: Results Pipeline
+name: Results Pipeline
 
-# on:
-#     workflow_dispatch:
-#     schedule:
-#         - cron: "0 7 * * MON"
+on:
+    workflow_dispatch:
+    schedule:
+        - cron: "0 7 * * MON"
 
-# jobs:
-#     build:
-#         runs-on: ubuntu-latest
-#         steps:
-#             - uses: actions/checkout@v3
-#             - uses: actions/setup-python@v3
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            # - uses: actions/setup-python@v3
 #               with:
 #                 python-version: "3.9.16"
 #             - name: Install dependencies
@@ -24,11 +24,11 @@
 #                 SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 #               run: python pipeline_run.py results
         
-#             - name: Commit files
-#               run: |
-#                 git config user.email "actions@users.noreply.github.com"
-#                 git config user.name "Automated"
-#                 git add -A
-#                 timestamp=$(date -u)
-#                 git commit -m "Latest data: ${timestamp}" || exit 0
-#                 git push
+            - name: Commit files
+              run: |
+                git config user.email "actions@users.noreply.github.com"
+                git config user.name "Automated"
+                git add -A
+                timestamp=$(date -u)
+                git commit -m "Latest data: ${timestamp}" || exit 0
+                git push
