@@ -1,6 +1,6 @@
 # UFC-Predict
 
-_Applying machine learning and optimization techniques to generate alpha in the UFC betting market_
+_Applying machine learning and optimization techniques to the UFC_
 
 
 TO-DO: MIGRATE TO PLANETSCALE (big code changes needed)
