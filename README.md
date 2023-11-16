@@ -4,7 +4,7 @@ _Applying machine learning and optimization techniques to the UFC_
 
 
 TO-DO: MIGRATE TO PLANETSCALE (big code changes needed)
-- Update UFC Stats and Tapology spiders to scrape more data
+- Update UFC Stats and Tapology spiders to scrape more data (performance/FOTN bonuses, user votes, etc.)
 - Create FightMatrix spider
 - Create relevant tables in CLI, make sure to include bout ordinals as a column for ORDER BY statements
 - Figure out sqlalchemy
@@ -19,4 +19,4 @@ As of writing, the project leverages data from the following sources:
 - [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc) - Betting odds
 
 ---
-*This project is actively in development and a huge WIP. As such, the README will be updated accordingly.*
+*This project is actively in development and thus a huge WIP. As such, the README will be updated accordingly.*
