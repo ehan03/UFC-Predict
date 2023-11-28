@@ -4,9 +4,8 @@ _Applying machine learning and optimization techniques to the UFC_
 
 
 TO-DO: MIGRATE TO PLANETSCALE (big code changes needed)
-- Update UFC Stats and Tapology spiders to scrape more data (performance/FOTN bonuses, user votes, etc.)
+- Update UFC Stats and Tapology spiders to scrape more data
 - Create FightMatrix spider
-- Create Sherdog spider
 - Create relevant tables in CLI, make sure to include bout ordinals as a column for ORDER BY statements
 - Figure out sqlalchemy
 - Rework the entire set of Scrapy pipelines to follow the new paradigm
