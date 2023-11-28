@@ -17,7 +17,6 @@ As of writing, the project leverages data from the following sources:
 - [Tapology](https://www.tapology.com/fightcenter) - Bout and fighter statistics, some of which are not available on the UFC Stats website
 - [UFC Rankings](https://www.ufc.com/rankings) - Fighter rankings
 - (Tentative) [FightMatrix](https://www.fightmatrix.com/) - Custom rankings, other miscellaneous information
-- (Tentative) [Sherdog](https://www.sherdog.com/) - Name links to FightMatrix
 - [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc) - Betting odds
 
 ---
