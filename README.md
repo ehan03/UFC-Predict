@@ -4,7 +4,8 @@ _Applying machine learning and optimization techniques to the UFC_
 
 
 TO-DO: MIGRATE TO PLANETSCALE (big code changes needed)
-- Update UFC Stats and Tapology spiders to scrape more data
+- Update UFCStats spider to scrape times in seconds to work with integers
+- Update Tapology spider to scrape more data
 - Create FightMatrix spider
 - Create relevant tables in CLI, make sure to include bout ordinals as a column for ORDER BY statements
 - Figure out sqlalchemy
@@ -14,9 +15,9 @@ TO-DO: MIGRATE TO PLANETSCALE (big code changes needed)
 As of writing, the project leverages data from the following sources:
 - [UFC Stats](http://ufcstats.com/statistics/events/completed) - Bout and fighter statistics
 - [Tapology](https://www.tapology.com/fightcenter) - Bout and fighter statistics, some of which are not available on the UFC Stats website
-- [UFC Rankings](https://www.ufc.com/rankings) - Fighter rankings
-- (Tentative) [FightMatrix](https://www.fightmatrix.com/) - Custom rankings, other miscellaneous information
-- [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc) - Betting odds
+- (Tentative) [UFC Rankings](https://www.ufc.com/rankings) - Fighter rankings
+- (Tentative) [FightMatrix](https://www.fightmatrix.com/) - Custom rankings, ELO metrics, other miscellaneous information
+- (Tentative) [FightOdds.io](https://fightodds.io/upcoming-mma-events/ufc) - Betting odds
 
 ---
 *This project is actively in development and thus a huge WIP. As such, the README will be updated accordingly.*
