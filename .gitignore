@@ -57,3 +57,7 @@ docs/_build/
 
 # .env
 .env
+
+# Misc
+/data
+/notebooks_test
