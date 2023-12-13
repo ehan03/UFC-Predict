@@ -8,7 +8,6 @@ This module contains the item pipelines for the various scrapers
 import pandas as pd
 
 # local imports
-from src.databases.supabase_facade import SupabaseFacade
 from src.scrapers.ufc_scrapy.items import (
     TapologyBoutItem,
     UFCRankingsItem,
@@ -29,8 +28,7 @@ class UFCStatsFightersPipeline:
         """
 
         self.scrape_type = None
-        self.supabase_facade = SupabaseFacade()
-        self.rows = []  # for bulk insert
+        self.rows = []
 
     def open_spider(self, spider):
         """
@@ -55,24 +53,6 @@ class UFCStatsFightersPipeline:
         Upsert the scraped data into the database and close the spider
         """
 
-        if self.rows:
-            fighters_df = pd.DataFrame(self.rows)
-
-            # Sort by name
-            fighters_df["first name"] = fighters_df["FIGHTER_NAME"].apply(
-                lambda x: x.split()[0]
-            )
-            fighters_df["last name"] = fighters_df["FIGHTER_NAME"].apply(
-                lambda x: x.split()[-1]
-            )
-            fighters_df = fighters_df.sort_values(by=["last name", "first name"])
-            fighters_df = fighters_df.drop(columns=["first name", "last name"])
-
-            # Upsert into database
-            self.supabase_facade.bulk_upsert(
-                "UFCSTATS_FIGHTERS", fighters_df, "FIGHTER_ID"
-            )
-
 
 class UFCStatsBoutsPipeline:
     """
@@ -87,7 +67,6 @@ class UFCStatsBoutsPipeline:
         self.scrape_type = None
         self.rows_overall = []
         self.rows_by_round = []
-        self.supabase_facade = SupabaseFacade()
 
     def open_spider(self, spider):
         """
@@ -114,32 +93,6 @@ class UFCStatsBoutsPipeline:
         Upsert the scraped data into the database and close the spider
         """
 
-        if self.rows_overall:
-            bouts_overall_df = pd.DataFrame(self.rows_overall)
-            bouts_overall_df = bouts_overall_df.sort_values(
-                by=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
-            )
-            bouts_overall_df = bouts_overall_df.drop(columns=["BOUT_ORDINAL"])
-
-            # Upsert into database
-            self.supabase_facade.bulk_upsert(
-                "UFCSTATS_BOUTS_OVERALL", bouts_overall_df, "BOUT_ID"
-            )
-
-        if self.rows_by_round:
-            bouts_by_round_df = pd.DataFrame(self.rows_by_round)
-            bouts_by_round_df = bouts_by_round_df.sort_values(
-                by=["DATE", "EVENT_ID", "BOUT_ORDINAL", "ROUND"]
-            )
-            bouts_by_round_df = bouts_by_round_df.drop(
-                columns=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
-            )
-
-            # Upsert into database
-            self.supabase_facade.bulk_upsert(
-                "UFCSTATS_BOUTS_BY_ROUND", bouts_by_round_df, "BOUT_ROUND_ID"
-            )
-
 
 class TapologyBoutsPipeline:
     """
@@ -152,8 +105,7 @@ class TapologyBoutsPipeline:
         """
 
         self.scrape_type = None
-        self.rows = []  # for bulk insert
-        self.supabase_facade = SupabaseFacade()
+        self.rows = []
 
     def open_spider(self, spider):
         """
@@ -178,14 +130,6 @@ class TapologyBoutsPipeline:
         Inserts the scraped data into the database and closes the spider
         """
 
-        if self.rows:
-            bouts_df = pd.DataFrame(self.rows)
-            bouts_df = bouts_df.sort_values(by=["DATE", "EVENT_ID", "BOUT_ORDINAL"])
-            bouts_df = bouts_df.drop(columns=["BOUT_ORDINAL"])
-
-            # Upsert into database
-            self.supabase_facade.bulk_upsert("TAPOLOGY_BOUTS", bouts_df, "BOUT_ID")
-
 
 class UFCRankingsPipeline:
     """
@@ -198,7 +142,6 @@ class UFCRankingsPipeline:
         """
 
         self.rows = []
-        self.supabase_facade = SupabaseFacade()
 
     def open_spider(self, spider):
         """
@@ -221,24 +164,6 @@ class UFCRankingsPipeline:
         """
         Inserts the scraped data into the database and closes the spider
         """
-
-        if self.rows:
-            rankings_df = pd.DataFrame(self.rows)
-            scrape_date = rankings_df["scrape_date"].unique().tolist()
-            assert len(scrape_date) == 1
-            scrape_date = scrape_date[0]
-
-            # Check if latest rankings are already in the database
-            # We do this to avoid duplicates because primary key is a sequence
-            matches = (
-                self.supabase_facade.client.table("UFC_RANKINGS")
-                .select("*")
-                .eq("DATE", scrape_date)
-                .execute()
-            )
-
-            if not matches.data:
-                self.supabase_facade.bulk_insert("UFC_RANKINGS", rankings_df)
 
 
 class UFCStatsUpcomingEventPipeline:
