@@ -1,11 +1,16 @@
 # standard library imports
+from typing import Optional, Tuple
 
 # local imports
 
 # third party imports
 
 
-def extract_record(record):
+def extract_record(record: str) -> Tuple[int, int, int, int]:
+    """
+    Extracts the wins, losses, draws, and no contests from a record string
+    """
+
     splitted = record.split(r" (")
     nc = 0
     if len(splitted) == 2:
@@ -15,7 +20,11 @@ def extract_record(record):
     return (wins, losses, draws, nc)
 
 
-def convert_height(height):
+def convert_height(height: str) -> Optional[float]:
+    """
+    Converts a height string to inches
+    """
+
     if height != "--":
         feet, inches = height.split()
         return 12.0 * float(feet[:-1]) + float(inches[:-1])
@@ -23,7 +32,11 @@ def convert_height(height):
         return None
 
 
-def total_time(form, rnd, tm):
+def total_time(format: str, end_round: int, end_round_time_seconds: int) -> int:
+    """
+    Calculates the total time of a bout in seconds
+    """
+
     nothing = {
         "No Time Limit",
         "1 Rnd (20)",
@@ -54,55 +67,69 @@ def total_time(form, rnd, tm):
     fours = {"3 Rnd (4-4-4)", "5 Rnd (4-4-4-4-4)"}
     threes = {"5 Rnd (3-3-3-3-3)", "3 Rnd (3-3-3)", "2 Rnd (3-3)"}
 
-    if form in nothing:
-        return tm
-    elif form == "1 Rnd + OT (31-5)":
-        return tm + 31 * (rnd - 1)
-    elif form in thirty_OT:
-        return tm + 30 * (rnd - 1)
-    elif form == "1 Rnd + OT (27-3)":
-        return tm + 27 * (rnd - 1)
-    elif form in fifteen_OT:
-        return tm + 15 * (rnd - 1)
-    elif form == "1 Rnd + OT (12-3)":
-        return tm + 12 * (rnd - 1)
-    elif form in tens:
-        return tm + 10 * (rnd - 1)
-    elif form == "3 Rnd (8-8-8)":
-        return tm + 8 * (rnd - 1)
-    elif form in fives:
-        return tm + 5 * (rnd - 1)
-    elif form in fours:
-        return tm + 4 * (rnd - 1)
-    elif form in threes:
-        return tm + 3 * (rnd - 1)
-    elif form == "3 Rnd (2-2-2)":
-        return tm + 2 * (rnd - 1)
-    elif form == "1 Rnd + 2OT (24-3-3)":
-        if rnd == 1:
-            return tm
+    if format in nothing:
+        return end_round_time_seconds
+    elif format == "1 Rnd + OT (31-5)":
+        return end_round_time_seconds + 31 * 60 * (end_round - 1)
+    elif format in thirty_OT:
+        return end_round_time_seconds + 30 * 60 * (end_round - 1)
+    elif format == "1 Rnd + OT (27-3)":
+        return end_round_time_seconds + 27 * 60 * (end_round - 1)
+    elif format in fifteen_OT:
+        return end_round_time_seconds + 15 * 60 * (end_round - 1)
+    elif format == "1 Rnd + OT (12-3)":
+        return end_round_time_seconds + 12 * 60 * (end_round - 1)
+    elif format in tens:
+        return end_round_time_seconds + 10 * 60 * (end_round - 1)
+    elif format == "3 Rnd (8-8-8)":
+        return end_round_time_seconds + 8 * 60 * (end_round - 1)
+    elif format in fives:
+        return end_round_time_seconds + 5 * 60 * (end_round - 1)
+    elif format in fours:
+        return end_round_time_seconds + 4 * 60 * (end_round - 1)
+    elif format in threes:
+        return end_round_time_seconds + 3 * 60 * (end_round - 1)
+    elif format == "3 Rnd (2-2-2)":
+        return end_round_time_seconds + 2 * 60 * (end_round - 1)
+    elif format == "1 Rnd + 2OT (24-3-3)":
+        if end_round == 1:
+            return end_round_time_seconds
         else:
-            return 24 + tm + 3 * (rnd - 2)
-    elif form == "1 Rnd + 2OT (15-3-3)":
-        if rnd == 1:
-            return tm
+            return 24 * 60 + end_round_time_seconds + 3 * 60 * (end_round - 2)
+    elif format == "1 Rnd + 2OT (15-3-3)":
+        if end_round == 1:
+            return end_round_time_seconds
         else:
-            return 15 + tm + 3 * (rnd - 2)
-    elif form == "3 Rnd (10-5-5)":
-        if rnd == 1:
-            return tm
+            return 15 * 60 + end_round_time_seconds + 3 * 60 * (end_round - 2)
+    elif format == "3 Rnd (10-5-5)":
+        if end_round == 1:
+            return end_round_time_seconds
         else:
-            return 10 + 5 * (rnd - 2)
+            return 10 * 60 + 5 * 60 * (end_round - 2)
+    else:
+        raise ValueError(f"Unknown format: {format}")
 
 
-def extract_landed_attempted(x):
-    splitted = x.split(" of ")
+def extract_landed_attempted(landed_attempted: str) -> Tuple[int, int]:
+    """
+    Extracts the landed and attempted strikes from a string
+    """
+
+    splitted = landed_attempted.split(" of ")
     return (int(splitted[0]), int(splitted[1]))
 
 
-def ctrl_time(x):
-    if x == "--":
+def ctrl_time(time: str) -> Optional[int]:
+    """
+    Converts a string of the form MM:SS to seconds for control time
+    """
+
+    if time == "--":
         return None
     else:
-        temp = x.split(":")
-        return int(temp[0]) + (int(temp[1]) / 60.0)
+        temp = time.split(":")
+        return (int(temp[0]) * 60) + int(temp[1])
+
+
+def get_missing_fightmatrix_stats():
+    pass

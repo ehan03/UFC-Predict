@@ -4,6 +4,7 @@ This module contains all the spiders for scraping UFC data.
 
 # standard library imports
 import re
+import time
 from ast import literal_eval
 from html import unescape
 from urllib.parse import parse_qs, urlparse
@@ -11,17 +12,18 @@ from urllib.parse import parse_qs, urlparse
 # third party imports
 import pandas as pd
 import w3lib.html
-from scrapy.http import FormRequest
+from scrapy.http import FormRequest, Request
 from scrapy.spiders import Spider
 
 # local imports
 from src.scrapers.ufc_scrapy.items import (
+    FightMatrixFighterItem,
+    FightMatrixRankingItem,
     TapologyBoutItem,
-    UFCRankingsItem,
+    TapologyFighterItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
-    UFCStatsUpcomingBoutItem,
 )
 from src.scrapers.ufc_scrapy.utils import (
     convert_height,
@@ -34,9 +36,6 @@ from src.scrapers.ufc_scrapy.utils import (
 class UFCStatsSpider(Spider):
     """
     Spider for scraping UFC bout and fighter data from UFCStats
-
-    Attributes:
-        most_recent_only (bool): Whether to only scrape the most recent event or all past events
     """
 
     name = "ufcstats_spider"
@@ -60,34 +59,21 @@ class UFCStatsSpider(Spider):
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
         "RETRY_TIMES": 5,
-        "LOG_LEVEL": "INFO",
+        # "LOG_LEVEL": "INFO",
+        "LOG_LEVEL": "DEBUG",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsPipeline": 100,
+            # "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
+            # "ufc_scrapy.pipelines.UFCStatsBoutsPipeline": 100,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
 
     def __init__(self, *args, scrape_type, **kwargs):
-        """
-        Initialize UFCStatsSpider
-
-        Parameters:
-            most_recent_only (bool): Whether to only scrape the most recent event or all past events
-        """
-
         super().__init__(*args, **kwargs)
         assert scrape_type in {"all", "most_recent"}
         self.scrape_type = scrape_type
 
     def parse(self, response):
-        """
-        Parses response from start URL and yields requests for each event URL
-
-        Parameters:
-            response (Response): Response from start URL
-        """
-
         event_urls = ["http://ufcstats.com/event-details/6420efac0578988b"]
         event_urls.extend(
             reversed(
@@ -106,13 +92,6 @@ class UFCStatsSpider(Spider):
         yield from response.follow_all(event_urls, self.parse_event)
 
     def parse_event(self, response):
-        """
-        Parses response from event URL and yields requests for each bout URL and fighter URL.
-
-        Parameters:
-            response (Response): Response from event URL
-        """
-
         bout_urls = response.css(
             """tr.b-fight-details__table-row.b-fight-details__table-row__hover.js-fight-details-click > 
             td.b-fight-details__table-col.b-fight-details__table-col_style_align-top >
@@ -163,13 +142,6 @@ class UFCStatsSpider(Spider):
         yield from response.follow_all(fighter_urls, self.parse_fighter)
 
     def parse_fighter(self, response):
-        """
-        Parses response from fighter URL and yields FighterItem
-
-        Parameters:
-            response (Response): Response from fighter URL
-        """
-
         fighter_item = UFCStatsFighterItem()
 
         # Get all relevant fields
@@ -207,18 +179,6 @@ class UFCStatsSpider(Spider):
         location,
         bout_ordinal,
     ):
-        """
-        Parses response from bout URL and yields BoutItem
-
-        Parameters:
-            response (Response): Response from bout URL
-            event_id (str): Event ID
-            event_name (str): Event name
-            date (str): Date of event
-            location (str): Location of event
-            bout_ordinal (int): Bout ordinal i.e. 0 for first bout, 1 for second bout, etc.
-        """
-
         bout_overall_item = UFCStatsBoutOverallItem()
 
         bout_overall_item["BOUT_ID"] = response.url.split("/")[-1]
@@ -236,12 +196,6 @@ class UFCStatsSpider(Spider):
         bout_overall_item["RED_FIGHTER_ID"] = fighter_urls[0].split("/")[-1]
         bout_overall_item["BLUE_FIGHTER_ID"] = fighter_urls[1].split("/")[-1]
 
-        fighter_names = response.css(
-            "a.b-link.b-fight-details__person-link::text"
-        ).getall()
-        bout_overall_item["RED_FIGHTER_NAME"] = fighter_names[0].strip()
-        bout_overall_item["BLUE_FIGHTER_NAME"] = fighter_names[1].strip()
-
         outcomes = response.css("i.b-fight-details__person-status::text").getall()
         bout_overall_item["RED_OUTCOME"] = outcomes[0].strip()
         bout_overall_item["BLUE_OUTCOME"] = outcomes[1].strip()
@@ -252,14 +206,26 @@ class UFCStatsSpider(Spider):
             if x.strip()
         ][0]
 
+        bonus_img_src = response.css(
+            "i.b-fight-details__fight-title > img::attr(src)"
+        ).getall()
+        if bonus_img_src:
+            bonus_img_names = [x.split("/")[-1] for x in bonus_img_src]
+            if "perf.png" in bonus_img_names:
+                bout_overall_item["BOUT_PERF_BONUS"] = 1
+            else:
+                bout_overall_item["BOUT_PERF_BONUS"] = 0
+        else:
+            bout_overall_item["BOUT_PERF_BONUS"] = 0
+
         method_info = response.css("i.b-fight-details__text-item_first").getall()
         bout_overall_item["OUTCOME_METHOD"] = (
             w3lib.html.remove_tags(method_info[0]).replace("Method:", "").strip()
         )
 
         details = response.css("p.b-fight-details__text").getall()
-        bout_overall_item["OUTCOME_METHOD_DETAILS"] = (
-            w3lib.html.remove_tags(details[1]).replace("Details:", "").strip()
+        bout_overall_item["OUTCOME_METHOD_DETAILS"] = " ".join(
+            w3lib.html.remove_tags(details[1]).replace("Details:", "").strip().split()
         )
 
         time_format_info = response.css("i.b-fight-details__text-item").getall()
@@ -272,18 +238,18 @@ class UFCStatsSpider(Spider):
             .strip()
             .split(":")
         )
-        bout_overall_item["END_ROUND_TIME_MINUTES"] = (
-            int(end_round_time_split[0]) + int(end_round_time_split[1]) / 60.0
-        )
+        bout_overall_item["END_ROUND_TIME_SECONDS"] = int(
+            end_round_time_split[0]
+        ) * 60 + int(end_round_time_split[1])
         bout_overall_item["BOUT_TIME_FORMAT"] = (
             w3lib.html.remove_tags(time_format_info[2])
             .replace("Time format:", "")
             .strip()
         )
-        bout_overall_item["TOTAL_TIME_MINUTES"] = total_time(
+        bout_overall_item["TOTAL_TIME_SECONDS"] = total_time(
             bout_overall_item["BOUT_TIME_FORMAT"],
             bout_overall_item["END_ROUND"],
-            bout_overall_item["END_ROUND_TIME_MINUTES"],
+            bout_overall_item["END_ROUND_TIME_SECONDS"],
         )
 
         # Stats tables
@@ -298,17 +264,16 @@ class UFCStatsSpider(Spider):
             "BOUT_ORDINAL",
             "RED_FIGHTER_ID",
             "BLUE_FIGHTER_ID",
-            "RED_FIGHTER_NAME",
-            "BLUE_FIGHTER_NAME",
             "RED_OUTCOME",
             "BLUE_OUTCOME",
             "BOUT_TYPE",
+            "BOUT_BONUS",
             "OUTCOME_METHOD",
             "OUTCOME_METHOD_DETAILS",
             "END_ROUND",
-            "END_ROUND_TIME_MINUTES",
+            "END_ROUND_TIME_SECONDS",
             "BOUT_TIME_FORMAT",
-            "TOTAL_TIME_MINUTES",
+            "TOTAL_TIME_SECONDS",
         }
         for key in UFCStatsBoutOverallItem.fields.keys() - non_fight_table_fields:
             bout_overall_item[key] = None
@@ -344,8 +309,8 @@ class UFCStatsSpider(Spider):
             bout_overall_item["BLUE_SUBMISSION_ATTEMPTS"] = int(stats[17])
             bout_overall_item["RED_REVERSALS"] = int(stats[18])
             bout_overall_item["BLUE_REVERSALS"] = int(stats[19])
-            bout_overall_item["RED_CONTROL_TIME_MINUTES"] = ctrl_time(stats[20])
-            bout_overall_item["BLUE_CONTROL_TIME_MINUTES"] = ctrl_time(stats[21])
+            bout_overall_item["RED_CONTROL_TIME_SECONDS"] = ctrl_time(stats[20])
+            bout_overall_item["BLUE_CONTROL_TIME_SECONDS"] = ctrl_time(stats[21])
 
             sig_stats = [
                 x.strip()
@@ -454,10 +419,10 @@ class UFCStatsSpider(Spider):
                 bout_round_item["BLUE_SUBMISSION_ATTEMPTS"] = int(stats_for_round[17])
                 bout_round_item["RED_REVERSALS"] = int(stats_for_round[18])
                 bout_round_item["BLUE_REVERSALS"] = int(stats_for_round[19])
-                bout_round_item["RED_CONTROL_TIME_MINUTES"] = ctrl_time(
+                bout_round_item["RED_CONTROL_TIME_SECONDS"] = ctrl_time(
                     stats_for_round[20]
                 )
-                bout_round_item["BLUE_CONTROL_TIME_MINUTES"] = ctrl_time(
+                bout_round_item["BLUE_CONTROL_TIME_SECONDS"] = ctrl_time(
                     stats_for_round[21]
                 )
 
@@ -542,6 +507,7 @@ class TapologySpider(Spider):
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
         "DOWNLOAD_DELAY": 10,
+        "RANDOMIZE_DOWNLOAD_DELAY": True,
         "DOWNLOAD_TIMEOUT": 600,
         "CONCURRENT_REQUESTS": 1,
         "DOWNLOADER_MIDDLEWARES": {
@@ -554,7 +520,7 @@ class TapologySpider(Spider):
         "DEPTH_PRIORITY": 1,
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        "RETRY_TIMES": 3,
+        "RETRY_TIMES": 1,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             "ufc_scrapy.pipelines.TapologyBoutsPipeline": 100,
@@ -568,41 +534,28 @@ class TapologySpider(Spider):
         """
 
         super().__init__(*args, **kwargs)
-
-        # Scrape data for a particular page on the start URL or the most recent event
+        assert scrape_type == "most_recent" or scrape_type.startswith("page_")
         self.scrape_type = scrape_type
 
     def parse(self, response):
-        """
-        Parses current page and yields requests for each event URL
-        """
-
         event_listings = response.css("section.fcListing > div.main > div.left")
         event_urls = []
-        regions = []
         for event_listing in event_listings:
             event_urls.append(
                 response.urljoin(
                     event_listing.css("div.promotion > span.name > a::attr(href)").get()
                 )
             )
-            regions.append(
-                event_listing.css("div.geography > span.region > a::text").get()
-            )
-        assert len(event_urls) == len(regions)
 
         if "page_" in self.scrape_type:
             page_num = int(self.scrape_type.split("_")[1])
             assert page_num > 0
 
             if page_num == 1:
-                for i, event_url in enumerate(event_urls):
+                for event_url in event_urls:
                     yield response.follow(
                         event_url,
                         callback=self.parse_event,
-                        cb_kwargs={
-                            "region": regions[i],
-                        },
                     )
             else:
                 parsed_url = urlparse(response.url)
@@ -613,13 +566,10 @@ class TapologySpider(Spider):
                     current_page = 1
 
                 if current_page == page_num:
-                    for i, event_url in enumerate(event_urls):
+                    for event_url in event_urls:
                         yield response.follow(
                             event_url,
                             callback=self.parse_event,
-                            cb_kwargs={
-                                "region": regions[i],
-                            },
                         )
                 else:
                     # Workaround for terrible Ajax pagination, part 1
@@ -641,17 +591,9 @@ class TapologySpider(Spider):
             yield response.follow(
                 event_urls[0],
                 callback=self.parse_event,
-                cb_kwargs={
-                    "region": regions[0],
-                },
             )
 
     def parse_next_page(self, response):
-        """
-        Parses the response for the next page from the form request
-        and yields an actually usable response body
-        """
-
         # Workaround, part 2
         data = response.text
         data = re.search(r"html\((.*)\);", data)
@@ -661,11 +603,7 @@ class TapologySpider(Spider):
 
         yield from self.parse(response.replace(body=data))  # type: ignore
 
-    def parse_event(self, response, region):
-        """
-        Parses response from event URL and yields requests for each bout URL
-        """
-
+    def parse_event(self, response):
         bouts = response.css(
             "div.fightCardMatchup > table > tr > td > span.billing > a::attr(href)"
         )
@@ -679,12 +617,15 @@ class TapologySpider(Spider):
                 "div.details.details_with_poster.clearfix > div.right > ul.clearfix > li"
             ).getall()
         ]
+        region = response.css(
+            "div.regionFCSidebar > div.iconLead > div.textContents > div.leader > a::text"
+        ).get()
 
         date = location = venue = None
         for i, info in enumerate(event_info_list):
             if i == 0:
                 raw_date = info.split(" ")[1]
-                date = pd.to_datetime(raw_date).strftime("%Y-%m-%d")  # type: ignore
+                date = pd.to_datetime(raw_date).strftime("%Y-%m-%d")
             elif info.startswith("Location:"):
                 location_raw = info.replace("Location:", "").strip()
                 if location_raw:
@@ -694,12 +635,23 @@ class TapologySpider(Spider):
                 if venue_raw:
                     venue = venue_raw
 
+        event_and_promo_links = response.css(
+            "div.details.details_with_poster.clearfix > div.right > ul.clearfix > li > div.externalIconsHolder > a::attr(href)"
+        ).getall()
+        ufcstats_event_id = None
+        for link in event_and_promo_links:
+            if "www.ufcstats.com/event-details/" in link:
+                ufcstats_event_id = link.split("/")[-1]
+                break
+        assert ufcstats_event_id is not None
+
         for bout_ordinal, bout_url in enumerate(reversed(bout_urls)):
             yield response.follow(
                 bout_url,
                 callback=self.parse_bout,
                 cb_kwargs={
                     "event_id": event_id,
+                    "ufcstats_event_id": ufcstats_event_id,
                     "event_name": event_name,
                     "date": date,
                     "region": region,
@@ -713,6 +665,7 @@ class TapologySpider(Spider):
         self,
         response,
         event_id,
+        ufcstats_event_id,
         event_name,
         date,
         region,
@@ -720,10 +673,6 @@ class TapologySpider(Spider):
         venue,
         bout_ordinal,
     ):
-        """
-        Parses response from bout URL and yields TapologyBoutItem
-        """
-
         bout_item = TapologyBoutItem()
         bout_id = response.url.split("/")[-1]
 
@@ -736,6 +685,20 @@ class TapologySpider(Spider):
         bout_item["VENUE"] = venue
         bout_item["BOUT_ORDINAL"] = bout_ordinal
 
+        bout_item["UFCSTATS_EVENT_ID"] = ufcstats_event_id
+
+        bout_and_event_links = response.css(
+            "div.details.details_with_poster.clearfix > div.right > ul.clearfix > li > div.externalIconsHolder > a::attr(href)"
+        ).getall()
+        ufcstats_bout_id = None
+        for link in bout_and_event_links:
+            if link.startswith("http://www.ufcstats.com/fight-details/"):
+                ufcstats_bout_id = link.split("/")[-1]
+                break
+        assert ufcstats_bout_id is not None
+
+        bout_item["UFCSTATS_BOUT_ID"] = ufcstats_bout_id
+
         bout_preresult = (
             response.css("h4.boutPreResult::text").get().split(" | ")[0].strip()
         )
@@ -745,18 +708,11 @@ class TapologySpider(Spider):
             bout_item["BOUT_CARD_TYPE"] = "Main"
 
         # Fighter info
-        bout_item["FIGHTER_1_ID"] = (
-            response.css("span.fName.left > a::attr(href)").get().split("/")[-1]
-        )
-        bout_item["FIGHTER_2_ID"] = (
-            response.css("span.fName.right > a::attr(href)").get().split("/")[-1]
-        )
-        bout_item["FIGHTER_1_NAME"] = (
-            response.css("span.fName.left > a::text").get().strip()
-        )
-        bout_item["FIGHTER_2_NAME"] = (
-            response.css("span.fName.right > a::text").get().strip()
-        )
+        f1_url = response.css("span.fName.left > a::attr(href)").get()
+        f2_url = response.css("span.fName.right > a::attr(href)").get()
+
+        bout_item["FIGHTER_1_ID"] = f1_url.split("/")[-1]
+        bout_item["FIGHTER_2_ID"] = f2_url.split("/")[-1]
 
         stats_table_rows = response.css("table.fighterStats.spaced > tr")
         for row in stats_table_rows:
@@ -769,9 +725,6 @@ class TapologySpider(Spider):
             if stat_category == "Pro Record At Fight":
                 bout_item["FIGHTER_1_RECORD_AT_BOUT"] = f1_stat if f1_stat else None
                 bout_item["FIGHTER_2_RECORD_AT_BOUT"] = f2_stat if f2_stat else None
-            elif stat_category == "Nationality":
-                bout_item["FIGHTER_1_NATIONALITY"] = f1_stat if f1_stat else None
-                bout_item["FIGHTER_2_NATIONALITY"] = f2_stat if f2_stat else None
             elif stat_category == "Weigh-In Result":
                 bout_item["FIGHTER_1_WEIGHT_POUNDS"] = (
                     float(f1_stat.split(" ")[0])
@@ -780,28 +733,6 @@ class TapologySpider(Spider):
                 )
                 bout_item["FIGHTER_2_WEIGHT_POUNDS"] = (
                     float(f2_stat.split(" ")[0])
-                    if (f2_stat and f2_stat != "N/A")
-                    else None
-                )
-            elif stat_category == "Height":
-                bout_item["FIGHTER_1_HEIGHT_INCHES"] = (
-                    convert_height(f1_stat.split(" ")[0].replace("'", "' "))
-                    if (f1_stat and f1_stat != "N/A")
-                    else None
-                )
-                bout_item["FIGHTER_2_HEIGHT_INCHES"] = (
-                    convert_height(f2_stat.split(" ")[0].replace("'", "' "))
-                    if (f2_stat and f2_stat != "N/A")
-                    else None
-                )
-            elif stat_category == "Reach":
-                bout_item["FIGHTER_1_REACH_INCHES"] = (
-                    float(f1_stat.split(" ")[0].replace('"', ""))
-                    if (f1_stat and f1_stat != "N/A")
-                    else None
-                )
-                bout_item["FIGHTER_2_REACH_INCHES"] = (
-                    float(f2_stat.split(" ")[0].replace('"', ""))
                     if (f2_stat and f2_stat != "N/A")
                     else None
                 )
@@ -860,93 +791,78 @@ class TapologySpider(Spider):
 
         yield bout_item
 
+        fighter_urls = [response.urljoin(f1_url), response.urljoin(f2_url)]
+        for fighter_url in fighter_urls:
+            yield response.follow(
+                fighter_url,
+                callback=self.parse_fighter,
+            )
 
-class UFCRankingsSpider(Spider):
+    def parse_fighter(self, response):
+        fighter_item = TapologyFighterItem()
+
+        fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
+        fighter_item["FIGHTER_NAME"] = (
+            response.css("div.fighterUpcomingHeader > h1::text").getall()[-1].strip()
+        )
+        fighter_item["NATIONALITY"] = (
+            response.css("div.fighterUpcomingHeader > h2#flag > a::attr(title)")
+            .get()
+            .replace("See all ", "")
+            .replace(" Fighters", "")
+            .strip()
+        )
+
+        details = [
+            w3lib.html.remove_tags(x).strip()
+            for x in response.css(
+                "div.details.details_two_columns > ul.clearfix > li"
+            ).getall()
+        ]
+        for detail in details:
+            if detail.startswith("Age:"):
+                dob = detail.split("| ")[1].replace("Date of Birth:", "").strip()
+                fighter_item["DATE_OF_BIRTH"] = (
+                    pd.to_datetime(dob).strftime("%Y-%m-%d") if dob != "N/A" else None
+                )
+            elif detail.startswith("Height:"):
+                height, reach = detail.split("| ")
+                height = height.replace("Height:", "").split(" (")[0].strip()
+                reach = reach.replace("Reach:", "").split(" (")[0].strip()
+                fighter_item["HEIGHT_INCHES"] = (
+                    convert_height(height.replace("'", "' "))
+                    if height != "N/A"
+                    else None
+                )
+                fighter_item["REACH_INCHES"] = (
+                    float(reach.replace('"', "")) if reach != "N/A" else None
+                )
+
+        fighter_links = response.css(
+            "div.details.details_two_columns > ul.clearfix > li > div.externalIconsHolder > a::attr(href)"
+        ).getall()
+        ufcstats_fighter_id = sherdog_fighter_id = None
+        for link in fighter_links:
+            if "www.ufcstats.com/fighter-details/" in link:
+                ufcstats_fighter_id = link.split("/")[-1]
+            elif "www.sherdog.com/fighter/" in link:
+                sherdog_fighter_id = link.split("/")[-1]
+        fighter_item["UFCSTATS_FIGHTER_ID"] = ufcstats_fighter_id
+        fighter_item["SHERDOG_FIGHTER_ID"] = sherdog_fighter_id
+
+        yield fighter_item
+
+
+class FightMatrixSpider(Spider):
     """
-    Spider for scraping UFC rankings from UFC.com
-    """
-
-    name = "ufc_rankings_spider"
-    allowed_domains = ["ufc.com"]
-    start_urls = ["https://www.ufc.com/rankings"]
-    custom_settings = {
-        "ROBOTSTXT_OBEY": False,
-        "CONCURRENT_REQUESTS": 1,
-        "COOKIES_ENABLED": False,
-        "DOWNLOADER_MIDDLEWARES": {
-            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
-            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
-        },
-        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
-        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-        "FEED_EXPORT_ENCODING": "utf-8",
-        "DEPTH_PRIORITY": 1,
-        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
-        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        "RETRY_TIMES": 5,
-        "LOG_LEVEL": "INFO",
-        "ITEM_PIPELINES": {
-            # "ufc_scrapy.pipelines.UFCRankingsPipeline": 100,
-        },
-        "CLOSESPIDER_ERRORCOUNT": 1,
-    }
-
-    def parse(self, response):
-        """
-        Parse rankings page and yield item for each fighter
-        """
-
-        date = pd.Timestamp.now(tz="US/Eastern").strftime("%Y-%m-%d")
-        ranking_groups = response.css("div.view-grouping")
-
-        for group in ranking_groups:
-            weight_class = group.css("div.info > h4::text").get().strip()
-            if "Pound-for-Pound" not in weight_class:
-                champion = group.css("div.info > h5 > a::text").get()
-                if champion:
-                    champion_name = champion.strip()
-
-                    champion_rankings_item = UFCRankingsItem()
-                    champion_rankings_item["DATE"] = date
-                    champion_rankings_item["WEIGHT_CLASS"] = weight_class
-                    champion_rankings_item["RANK"] = 0
-                    champion_rankings_item["FIGHTER_NAME"] = champion_name
-
-                    yield champion_rankings_item
-
-                rankings_table = group.css("tbody")
-                ranks = [
-                    int(x)
-                    for x in rankings_table.css(
-                        "td.views-field.views-field-weight-class-rank::text"
-                    ).getall()
-                ]
-                fighter_names = [
-                    x.strip()
-                    for x in rankings_table.css(
-                        "td.views-field.views-field-title > a::text"
-                    ).getall()
-                ]
-                assert len(ranks) == len(fighter_names)
-
-                for rank, fighter_name in zip(ranks, fighter_names):
-                    rankings_item = UFCRankingsItem()
-                    rankings_item["DATE"] = date
-                    rankings_item["WEIGHT_CLASS"] = weight_class
-                    rankings_item["RANK"] = rank
-                    rankings_item["FIGHTER_NAME"] = fighter_name
-
-                    yield rankings_item
-
-
-class UFCStatsUpcomingEventSpider(Spider):
-    """
-    Spider for scraping upcoming UFC event from UFCStats
+    Spider for scraping data from FightMatrix
     """
 
-    name = "ufcstats_upcoming_event_spider"
-    allowed_domains = ["ufcstats.com"]
-    start_urls = ["http://ufcstats.com/statistics/events/upcoming"]
+    name = "fightmatrix_spider"
+    allowed_domains = ["fightmatrix.com"]
+    start_urls = [
+        "https://www.fightmatrix.com/historical-mma-rankings/ranking-snapshots/"
+    ]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
@@ -965,53 +881,150 @@ class UFCStatsUpcomingEventSpider(Spider):
         "RETRY_TIMES": 5,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsOverallPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsBoutsByRoundPipeline": 100,
+            #
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
 
+    def __init__(self, *args, scrape_type, **kwargs):
+        """
+        Initialize FightMatrixSpider
+        """
+
+        super().__init__(*args, **kwargs)
+        assert scrape_type in {"most_recent", "all"}
+        self.scrape_type = scrape_type
+        self.weight_class_map = {
+            "1": "Heavyweight",
+            "2": "Light Heavyweight",
+            "3": "Middleweight",
+            "4": "Welterweight",
+            "5": "Lightweight",
+            "6": "Featherweight",
+            "7": "Bantamweight",
+            "8": "Flyweight",
+            "16": "Women's Featherweight",
+            "15": "Women's Bantamweight",
+            "14": "Women's Flyweight",
+            "13": "Women's Strawweight",
+        }
+
     def parse(self, response):
-        """
-        Parses current page and yields request for closest upcoming event
-        """
+        filtertable_td = response.css("table#filterTable *> td")
+        issues = filtertable_td[0].css("option::attr(value)").getall()[1:]
+        dates = filtertable_td[0].css("option::text").getall()[1:]
+        dates = [pd.to_datetime(x).strftime("%Y-%m-%d") for x in dates]
+        assert len(issues) == len(dates)
 
-        upcoming_event_url = response.css(
-            "i.b-statistics__table-content > a.b-link.b-link_style_black::attr(href)"
-        ).get()
+        if self.scrape_type == "most_recent":
+            issues = [issues[0]]
+            dates = [dates[0]]
 
-        yield response.follow(upcoming_event_url, callback=self.parse_upcoming_event)
+        for issue, date in zip(issues, dates):
+            for division, weight_class in self.weight_class_map.items():
+                if time.strptime(date, "%Y-%m-%d") < time.strptime(
+                    "2010-03-01", "%Y-%m-%d"
+                ):
+                    # UFCStats data is useless before 2010 (no red/blue distinction)
+                    break
 
-    def parse_upcoming_event(self, response):
-        """
-        Parses upcoming event page and yields requests for each upcoming bout
-        """
+                if time.strptime(date, "%Y-%m-%d") < time.strptime(
+                    "2013-02-01", "%Y-%m-%d"
+                ) and division in {"16", "15", "14", "13"}:
+                    # Women's divisions didn't exist before 2013 in the UFC
+                    continue
 
-        event_id = response.url.split("/")[-1]
-        event_name = (
-            response.css(
-                """h2.b-content__title > 
-                span.b-content__title-highlight::text"""
+                yield response.follow(
+                    f"https://www.fightmatrix.com/historical-mma-rankings/ranking-snapshots/?Issue={issue}&Division={division}",
+                    callback=self.parse_ranking_page,
+                    cb_kwargs={"date": date, "weight_class": weight_class},
+                )
+
+    def parse_ranking_page(self, response, date, weight_class):
+        rows = response.css("table.tblRank > tbody > tr")
+        for row in rows[1:]:
+            ranking_item = FightMatrixRankingItem()
+            ranking_item["DATE"] = date
+            ranking_item["WEIGHT_CLASS"] = weight_class
+
+            cells = row.css("td")
+
+            ranking_item["RANK"] = int(cells[0].css("::text").get().strip())
+            rank_change = cells[1].css("::text").get().strip()
+            if rank_change == "NR":
+                ranking_item["RANK_CHANGE"] = None
+            elif not rank_change:
+                ranking_item["RANK_CHANGE"] = 0
+            else:
+                ranking_item["RANK_CHANGE"] = int(rank_change)
+
+            fighter_link = cells[2].css("a::attr(href)").get()
+            fighter_id = fighter_link.replace("/fighter-profile/", "")
+
+            if fighter_id == "//":
+                # Edge case for missing fighter
+                continue
+
+            ranking_item["FIGHTER_ID"] = fighter_id
+            ranking_item["POINTS"] = int(cells[3].css("div.tdBar::text").get().strip())
+
+            yield ranking_item
+
+            yield response.follow(
+                fighter_link,
+                callback=self.parse_fighter,
             )
-            .get()
-            .strip()
+
+        pager_table = response.css("table.pager")[0]
+        pager_atags = pager_table.css("tr > td > a")
+        if pager_atags:
+            for atag in pager_atags:
+                arrow = atag.css("b::text").get().strip()
+                href = atag.css("::attr(href)").get()
+                if arrow == ">":
+                    yield response.follow(
+                        href,
+                        callback=self.parse_ranking_page,
+                        cb_kwargs={"date": date, "weight_class": weight_class},
+                    )
+                    break
+
+    def parse_fighter(self, response):
+        fighter_item = FightMatrixFighterItem()
+
+        fighter_item["FIGHTER_NAME"] = (
+            response.css("div.posttitle > h1 > a::text").get().strip()
         )
-        date, location = [
-            x.strip()
-            for i, x in enumerate(
-                response.css("li.b-list__box-list-item::text").getall()
-            )
-            if i % 2 == 1
-        ]
+        fighter_item["FIGHTER_ID"] = response.url.replace(
+            "https://www.fightmatrix.com/fighter-profile/", ""
+        )
+        fighter_links = response.css(
+            "td.tdRankHead > div.leftCol *> a::attr(href)"
+        ).getall()
+        sherdog_fighter_id = tapology_fighter_id = None
+        for link in fighter_links:
+            if "www.sherdog.com" in link:
+                sherdog_fighter_id = link.split("/")[-1]
+            elif "www.tapology.com" in link:
+                tapology_fighter_id = link.split("/")[-1]
+        fighter_item["SHERDOG_FIGHTER_ID"] = sherdog_fighter_id
+        fighter_item["TAPOLOGY_FIGHTER_ID"] = tapology_fighter_id
 
-    def parse_upcoming_bout(self, response):
-        """
-        Parses upcoming bout page and yields UFCStatsUpcomingBoutItem
-        """
-        upcoming_bout_item = UFCStatsUpcomingBoutItem()
+        yield fighter_item
 
-        yield upcoming_bout_item
+
+class UFCStatsUpcomingEventSpider(Spider):
+    """
+    Spider for scraping upcoming UFC event from UFCStats
+    """
+
+    name = "ufcstats_upcoming_event_spider"
+    allowed_domains = ["ufcstats.com"]
+    start_urls = ["http://www.ufcstats.com/statistics/events/upcoming"]
+    custom_settings = {}
+
+    def parse(self, response):
+        pass
 
 
 class TapologyUpcomingEventSpider(Spider):
@@ -1026,6 +1039,9 @@ class TapologyUpcomingEventSpider(Spider):
     ]
     custom_settings = {}
 
+    def parse(self, response):
+        pass
+
 
 class FightOddsIOSpider(Spider):
     """
@@ -1038,6 +1054,4 @@ class FightOddsIOSpider(Spider):
     custom_settings = {}
 
     def parse(self, response):
-        """
-        Parses current page and yields request for closest upcoming event
-        """
+        pass

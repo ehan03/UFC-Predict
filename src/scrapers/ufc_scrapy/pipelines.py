@@ -9,8 +9,11 @@ import pandas as pd
 
 # local imports
 from src.scrapers.ufc_scrapy.items import (
+    FightMatrixFighterItem,
+    FightMatrixRankingItem,
+    FightOddsIOBoutItem,
     TapologyBoutItem,
-    UFCRankingsItem,
+    TapologyFighterItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
@@ -94,6 +97,12 @@ class UFCStatsBoutsPipeline:
         """
 
 
+class TapologyFightersPipeline:
+    """
+    Item pipeline for Tapology fighter data
+    """
+
+
 class TapologyBoutsPipeline:
     """
     Item pipeline for Tapology bout data
@@ -131,39 +140,16 @@ class TapologyBoutsPipeline:
         """
 
 
-class UFCRankingsPipeline:
+class FightMatrixFightersPipeline:
     """
-    Item pipeline for UFC rankings data
+    Item pipeline for Fight Matrix fighter data
     """
 
-    def __init__(self) -> None:
-        """
-        Initialize the pipeline class
-        """
 
-        self.rows = []
-
-    def open_spider(self, spider):
-        """
-        Open the spider
-        """
-
-        assert spider.name == "ufc_rankings_spider"
-
-    def process_item(self, item, spider):
-        """
-        Process UFCRankingsItem objects
-        """
-
-        if isinstance(item, UFCRankingsItem):
-            self.rows.append(item)
-
-        return item
-
-    def close_spider(self, spider):
-        """
-        Inserts the scraped data into the database and closes the spider
-        """
+class FightMatrixRankingsPipeline:
+    """
+    Item pipeline for Fight Matrix rankings data
+    """
 
 
 class UFCStatsUpcomingEventPipeline:
@@ -175,4 +161,10 @@ class UFCStatsUpcomingEventPipeline:
 class TapologyUpcomingEventPipeline:
     """
     Item pipeline for upcoming event data from Tapology
+    """
+
+
+class FightOddsUpcomingEventPipeline:
+    """
+    Item pipeline for upcoming event betting odds data from Fight Odds
     """
