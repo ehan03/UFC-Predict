@@ -8,36 +8,59 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scrapers"))
 from scrapy.crawler import CrawlerProcess
 
 # local imports
-from src.pipelines.base import Pipeline
-from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import TapologySpider, UFCStatsSpider
+from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import (
+    FightOddsIOSpider,
+    UFCStatsSpider,
+)
 
 
-class ResultsPipeline(Pipeline):
+class ResultsPipeline:
     """
-    Pipeline for scraping event outcomes, computing PnL, and storing results
+    Class for handling UFC event results
     """
 
-    def scrape_ufcstats_tapology_results(self):
+    def __init__(self, scrape_type):
         """
-        Scrape results from UFCStats and Tapology
+        Initialize ResultsPipeline class
         """
 
-        process = CrawlerProcess({"LOG_LEVEL": "INFO"})
-        process.crawl(UFCStatsSpider, scrape_type="most_recent")
-        process.crawl(TapologySpider, scrape_type="most_recent")
+        assert scrape_type in {"all", "most_recent"}
+        self.scrape_type = scrape_type
+
+    def get_results(self):
+        """
+        Get historical data from UFCStats and FightOddsIO
+        """
+
+        process = CrawlerProcess(settings={"LOG_LEVEL": "INFO"})
+        process.crawl(UFCStatsSpider, scrape_type=self.scrape_type)
+        process.crawl(FightOddsIOSpider, scrape_type=self.scrape_type)
         process.start()
 
-    def compute_pnl(self):
+    def update_ufcstats_fightoddsio_linkage(self):
         """
-        Compute PnL
+        Update linkage between UFCStats and FightOddsIO
+        """
+
+        pass
+
+    def update_pnl(self):
+        """
+        Update PnL on bets
+        """
+
+        pass
+
+    def update_features(self):
+        """
+        Update features for models
         """
 
         pass
 
     def __call__(self):
         """
-        Run pipeline
+        Run the pipeline
         """
 
-        self.scrape_ufcstats_tapology_results()
-        self.compute_pnl()
+        self.get_results()

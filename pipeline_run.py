@@ -2,21 +2,21 @@
 import sys
 
 # local imports
-from src.pipelines import ModelPipeline, ResultsPipeline, UpcomingPipeline
+from src.pipelines import ResultsPipeline
 
 # third party imports
-
-
-PIPELINE_ID_MAP = {
-    "model": ModelPipeline,
-    "results": ResultsPipeline,
-    "upcoming": UpcomingPipeline,
-}
 
 
 if __name__ == "__main__":
     # Command line arguments
     assert len(sys.argv) == 2, "Must specify pipeline ID"
     pipeline_id = sys.argv[1]
-    pipeline = PIPELINE_ID_MAP[pipeline_id]()
+
+    if pipeline_id == "results_all":
+        pipeline = ResultsPipeline(scrape_type="all")
+    elif pipeline_id == "results_most_recent":
+        pipeline = ResultsPipeline(scrape_type="most_recent")
+    else:
+        raise ValueError(f"Invalid pipeline ID: {pipeline_id}")
+
     pipeline()

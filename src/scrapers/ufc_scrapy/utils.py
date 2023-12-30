@@ -1,43 +1,31 @@
 # standard library imports
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 # local imports
 
 # third party imports
 
 
-def extract_record(record: str) -> Tuple[int, int, int, int]:
-    """
-    Extracts the wins, losses, draws, and no contests from a record string
-    """
-
-    splitted = record.split(r" (")
-    nc = 0
-    if len(splitted) == 2:
-        nc = int(splitted[1].replace(r" NC)", ""))
-    wins, losses, draws = [int(x) for x in splitted[0].split("-")]
-
-    return (wins, losses, draws, nc)
-
-
-def convert_height(height: str) -> Optional[float]:
+def convert_height(height: str) -> Optional[int]:
     """
     Converts a height string to inches
     """
 
     if height != "--":
         feet, inches = height.split()
-        return 12.0 * float(feet[:-1]) + float(inches[:-1])
+        return 12 * int(feet[:-1]) + int(inches[:-1])
     else:
         return None
 
 
-def total_time(format: str, end_round: int, end_round_time_seconds: int) -> int:
+def total_time(
+    format: str, end_round: int, end_round_time_seconds: int
+) -> Tuple[int, List[int]]:
     """
-    Calculates the total time of a bout in seconds
+    Calculates the total time of a bout in seconds and per-round times
     """
 
-    nothing = {
+    one_round = {
         "No Time Limit",
         "1 Rnd (20)",
         "1 Rnd (30)",
@@ -45,18 +33,10 @@ def total_time(format: str, end_round: int, end_round_time_seconds: int) -> int:
         "1 Rnd (18)",
         "1 Rnd (10)",
         "1 Rnd (12)",
-        "Unlimited Rnd (10)",
-        "Unlimited Rnd  (15)",
-        "Unlimited Rnd (20)",
     }
-    thirty_OT = {"1 Rnd + OT (30-5)", "1 Rnd + OT (30-3)"}
-    fifteen_OT = {"1 Rnd + OT (15-3)", "1 Rnd + OT (15-10)"}
-    tens = {
-        "3 Rnd (10-10-10)",
-        "4 Rnd (10-10-10-10)",
-        "2 Rnd (10-10)",
-        "3 Rnd (10-10-5)",
-        "2 Rnd (10-5)",
+    thirty_OT = {
+        "1 Rnd + OT (30-5)",
+        "1 Rnd + OT (30-3)",
     }
     fives = {
         "2 Rnd (5-5)",
@@ -64,48 +44,47 @@ def total_time(format: str, end_round: int, end_round_time_seconds: int) -> int:
         "5 Rnd (5-5-5-5-5)",
         "3 Rnd + OT (5-5-5-5)",
     }
-    fours = {"3 Rnd (4-4-4)", "5 Rnd (4-4-4-4-4)"}
-    threes = {"5 Rnd (3-3-3-3-3)", "3 Rnd (3-3-3)", "2 Rnd (3-3)"}
 
-    if format in nothing:
-        return end_round_time_seconds
-    elif format == "1 Rnd + OT (31-5)":
-        return end_round_time_seconds + 31 * 60 * (end_round - 1)
+    if format in one_round:
+        return end_round_time_seconds, [end_round_time_seconds]
     elif format in thirty_OT:
-        return end_round_time_seconds + 30 * 60 * (end_round - 1)
-    elif format == "1 Rnd + OT (27-3)":
-        return end_round_time_seconds + 27 * 60 * (end_round - 1)
-    elif format in fifteen_OT:
-        return end_round_time_seconds + 15 * 60 * (end_round - 1)
-    elif format == "1 Rnd + OT (12-3)":
-        return end_round_time_seconds + 12 * 60 * (end_round - 1)
-    elif format in tens:
-        return end_round_time_seconds + 10 * 60 * (end_round - 1)
-    elif format == "3 Rnd (8-8-8)":
-        return end_round_time_seconds + 8 * 60 * (end_round - 1)
+        return end_round_time_seconds + 30 * 60 * (end_round - 1), [30 * 60] * (
+            end_round - 1
+        ) + [end_round_time_seconds]
     elif format in fives:
-        return end_round_time_seconds + 5 * 60 * (end_round - 1)
-    elif format in fours:
-        return end_round_time_seconds + 4 * 60 * (end_round - 1)
-    elif format in threes:
-        return end_round_time_seconds + 3 * 60 * (end_round - 1)
-    elif format == "3 Rnd (2-2-2)":
-        return end_round_time_seconds + 2 * 60 * (end_round - 1)
+        return end_round_time_seconds + 5 * 60 * (end_round - 1), [5 * 60] * (
+            end_round - 1
+        ) + [end_round_time_seconds]
+    elif format == "1 Rnd + OT (31-5)":
+        return end_round_time_seconds + 31 * 60 * (end_round - 1), [31 * 60] * (
+            end_round - 1
+        ) + [end_round_time_seconds]
+    elif format == "1 Rnd + OT (27-3)":
+        return end_round_time_seconds + 27 * 60 * (end_round - 1), [27 * 60] * (
+            end_round - 1
+        ) + [end_round_time_seconds]
+    elif format == "1 Rnd + OT (12-3)":
+        return end_round_time_seconds + 12 * 60 * (end_round - 1), [12 * 60] * (
+            end_round - 1
+        ) + [end_round_time_seconds]
+    elif format == "1 Rnd + OT (15-3)":
+        return end_round_time_seconds + 15 * 30 * (end_round - 1), [15 * 30] * (
+            end_round - 1
+        ) + [end_round_time_seconds]
     elif format == "1 Rnd + 2OT (24-3-3)":
         if end_round == 1:
-            return end_round_time_seconds
+            return end_round_time_seconds, [end_round_time_seconds]
         else:
-            return 24 * 60 + end_round_time_seconds + 3 * 60 * (end_round - 2)
+            return 24 * 60 + end_round_time_seconds + 3 * 60 * (end_round - 2), [
+                24 * 60
+            ] + [3 * 60] * (end_round - 2) + [end_round_time_seconds]
     elif format == "1 Rnd + 2OT (15-3-3)":
         if end_round == 1:
-            return end_round_time_seconds
+            return end_round_time_seconds, [end_round_time_seconds]
         else:
-            return 15 * 60 + end_round_time_seconds + 3 * 60 * (end_round - 2)
-    elif format == "3 Rnd (10-5-5)":
-        if end_round == 1:
-            return end_round_time_seconds
-        else:
-            return 10 * 60 + 5 * 60 * (end_round - 2)
+            return 15 * 60 + end_round_time_seconds + 3 * 60 * (end_round - 2), [
+                15 * 60
+            ] + [3 * 60] * (end_round - 2) + [end_round_time_seconds]
     else:
         raise ValueError(f"Unknown format: {format}")
 
@@ -128,8 +107,187 @@ def ctrl_time(time: str) -> Optional[int]:
         return None
     else:
         temp = time.split(":")
-        return (int(temp[0]) * 60) + int(temp[1])
+        return 60 * int(temp[0]) + int(temp[1])
 
 
-def get_missing_fightmatrix_stats():
-    pass
+EVENTS_RECENT_GQL_QUERY = """
+query EventsPromotionRecentQuery(
+  $promotionSlug: String
+  $dateLt: Date
+  $after: String
+  $first: Int
+  $orderBy: String
+) {
+  promotion: promotionBySlug(slug: $promotionSlug) {
+    ...EventsPromotionTabPanel_promotion_34GGrn
+    id
+  }
+}
+
+fragment EventCardList_events on EventNodeConnection {
+  edges {
+    node {
+      ...EventCard_event
+    }
+  }
+}
+
+fragment EventCard_event on EventNode {
+  name
+  pk
+  slug
+  date
+  venue
+  city
+}
+
+fragment EventsPromotionTabPanel_promotion_34GGrn on PromotionNode {
+  ...PromotionEventCardListInfiniteScroll_promotion_34GGrn
+}
+
+fragment PromotionEventCardListInfiniteScroll_promotion_34GGrn on PromotionNode {
+  events(first: $first, after: $after, date_Lt: $dateLt, orderBy: $orderBy) {
+    ...EventCardList_events
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+"""
+
+FIGHTS_GQL_QUERY = """
+query EventFightsQuery(
+  $eventPk: Int
+) {
+  event: eventByPk(pk: $eventPk) {
+    pk
+    slug
+    fights {
+      ...EventTabPanelFights_fights
+    }
+    id
+  }
+}
+
+fragment EventTabPanelFights_fights on FightNodeConnection {
+  edges {
+    node {
+      id
+    }
+  }
+  ...FightTable_fights
+  ...FightCardList_fights
+}
+
+fragment FightCardList_fights on FightNodeConnection {
+  edges {
+    node {
+      ...FightCard_fight
+      id
+    }
+  }
+}
+
+fragment FightCard_fight on FightNode {
+  id
+  fighter1 {
+    id
+    firstName
+    lastName
+    slug
+  }
+  fighter2 {
+    id
+    firstName
+    lastName
+    slug
+  }
+  fighterWinner {
+    id
+  }
+  order
+  weightClass {
+    weightClass
+    weight
+    id
+  }
+  fighter1Odds
+  fighter2Odds
+  fightType
+  methodOfVictory1
+  methodOfVictory2
+  round
+  duration
+  slug
+}
+
+fragment FightTable_fights on FightNodeConnection {
+  edges {
+    node {
+      id
+      fighter1 {
+        id
+        firstName
+        lastName
+        slug
+      }
+      fighter2 {
+        id
+        firstName
+        lastName
+        slug
+      }
+      fighterWinner {
+        id
+        firstName
+        lastName
+        slug
+      }
+      order
+      weightClass {
+        weightClass
+        weight
+        id
+      }
+      isCancelled
+      fightType
+      methodOfVictory1
+      methodOfVictory2
+      round
+      duration
+      slug
+    }
+  }
+}
+"""
+
+FIGHTERS_GQL_QUERY = """
+query FighterQuery(
+  $fighterSlug: String
+) {
+  fighter: fighterBySlug(slug: $fighterSlug) {
+    ...FighterTabPanelInfo_fighter
+  }
+}
+
+fragment FighterTabPanelInfo_fighter on FighterNode {
+  ...FighterTableInfo_fighter
+  ...FighterTableFightingStyle_fighter
+}
+
+fragment FighterTableFightingStyle_fighter on FighterNode {
+  stance
+}
+
+fragment FighterTableInfo_fighter on FighterNode {
+  firstName
+  lastName
+  birthDate
+  nationality
+  height
+  reach
+  legReach
+  fightingStyle
+}
+"""

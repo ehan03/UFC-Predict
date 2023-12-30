@@ -3,26 +3,34 @@ This module contains the item pipelines for the various scrapers
 """
 
 # standard library imports
+import os
+import sqlite3
 
 # third party imports
 import pandas as pd
+from itemadapter.adapter import ItemAdapter
+from scrapy.exceptions import DropItem
 
 # local imports
+from src.databases.create_statements import (
+    CREATE_FIGHTODDSIO_BOUTS_TABLE,
+    CREATE_FIGHTODDSIO_FIGHTERS_TABLE,
+    CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE,
+    CREATE_UFCSTATS_BOUTS_OVERALL_TABLE,
+    CREATE_UFCSTATS_FIGHTERS_TABLE,
+)
 from src.scrapers.ufc_scrapy.items import (
-    FightMatrixFighterItem,
-    FightMatrixRankingItem,
     FightOddsIOBoutItem,
-    TapologyBoutItem,
-    TapologyFighterItem,
+    FightOddsIOFighterItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
 )
 
 
-class UFCStatsFightersPipeline:
+class UFCStatsResultsPipeline:
     """
-    Item pipeline for UFC Stats fighters data
+    Item pipeline for UFC Stats historical bouts and fighters data
     """
 
     def __init__(self) -> None:
@@ -31,7 +39,21 @@ class UFCStatsFightersPipeline:
         """
 
         self.scrape_type = None
-        self.rows = []
+
+        self.fighters = []
+        self.bouts_overall = []
+        self.bouts_by_round = []
+
+        self.conn = sqlite3.connect(
+            os.path.join(
+                os.path.dirname(__file__), "..", "..", "..", "data", "results.db"
+            ),
+            detect_types=sqlite3.PARSE_DECLTYPES,
+        )
+        self.cur = self.conn.cursor()
+        self.cur.execute(CREATE_UFCSTATS_FIGHTERS_TABLE)
+        self.cur.execute(CREATE_UFCSTATS_BOUTS_OVERALL_TABLE)
+        self.cur.execute(CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE)
 
     def open_spider(self, spider):
         """
@@ -43,128 +65,190 @@ class UFCStatsFightersPipeline:
 
     def process_item(self, item, spider):
         """
-        Process UFCStatsFighterItem objects
+        Process item objects
         """
 
         if isinstance(item, UFCStatsFighterItem):
-            self.rows.append(item)
-
-        return item
-
-    def close_spider(self, spider):
-        """
-        Upsert the scraped data into the database and close the spider
-        """
-
-
-class UFCStatsBoutsPipeline:
-    """
-    Item pipeline for UFC Stats bout data, including overall and by round
-    """
-
-    def __init__(self) -> None:
-        """
-        Initialize the pipeline class
-        """
-
-        self.scrape_type = None
-        self.rows_overall = []
-        self.rows_by_round = []
-
-    def open_spider(self, spider):
-        """
-        Open the spider
-        """
-
-        assert spider.name == "ufcstats_spider"
-        self.scrape_type = spider.scrape_type
-
-    def process_item(self, item, spider):
-        """
-        Process UFCStatsBoutOverallItem and UFCStatsBoutRoundItem objects
-        """
-
-        if isinstance(item, UFCStatsBoutOverallItem):
-            self.rows_overall.append(item)
+            self.fighters.append(dict(item))
+        elif isinstance(item, UFCStatsBoutOverallItem):
+            self.bouts_overall.append(dict(item))
         elif isinstance(item, UFCStatsBoutRoundItem):
-            self.rows_by_round.append(item)
+            self.bouts_by_round.append(dict(item))
 
         return item
 
     def close_spider(self, spider):
         """
-        Upsert the scraped data into the database and close the spider
+        Insert the scraped data into the database and close the spider
         """
 
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM UFCSTATS_FIGHTERS")
+            self.cur.execute("DELETE FROM UFCSTATS_BOUTS_OVERALL")
+            self.cur.execute("DELETE FROM UFCSTATS_BOUTS_BY_ROUND")
 
-class TapologyFightersPipeline:
-    """
-    Item pipeline for Tapology fighter data
-    """
+        fighters_df = pd.DataFrame(self.fighters)
+        bouts_overall_df = pd.DataFrame(self.bouts_overall).sort_values(
+            by=["DATE", "BOUT_ORDINAL"]
+        )
+        bout_ids = bouts_overall_df["BOUT_ID"].values.tolist()
+        bouts_by_round_df = pd.DataFrame(self.bouts_by_round).sort_values(
+            by=["BOUT_ID", "ROUND"],
+            key=lambda x: x
+            if x.name != "BOUT_ID"
+            else x.map(lambda e: bout_ids.index(e)),
+        )
+
+        if self.scrape_type == "most_recent":
+            fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
+            self.cur.executemany(
+                "DELETE FROM UFCSTATS_FIGHTERS WHERE FIGHTER_ID = ?;",
+                [(e,) for e in fighter_ids],
+            )
+            self.cur.executemany(
+                "DELETE FROM UFCSTATS_BOUTS_OVERALL WHERE BOUT_ID = ?;",
+                [(e,) for e in bout_ids],
+            )
+            self.cur.executemany(
+                "DELETE FROM UFCSTATS_BOUTS_BY_ROUND WHERE BOUT_ID = ?;",
+                [(e,) for e in bout_ids],
+            )
+
+        fighters_df.to_sql(
+            "UFCSTATS_FIGHTERS",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
+        bouts_overall_df.to_sql(
+            "UFCSTATS_BOUTS_OVERALL",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
+        bouts_by_round_df.to_sql(
+            "UFCSTATS_BOUTS_BY_ROUND",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
+
+        self.conn.commit()
+        self.conn.close()
 
 
-class TapologyBoutsPipeline:
+class FightOddsIOFightersDuplicatesPipeline:
     """
-    Item pipeline for Tapology bout data
+    Item pipeline for filtering out duplicate fighter items when
+    scraping FightOdds.io
     """
 
     def __init__(self) -> None:
         """
-        Initialize the pipeline class
+        Initialize pipeline object
         """
 
-        self.scrape_type = None
-        self.rows = []
+        self.fighter_slugs_seen = set()
 
     def open_spider(self, spider):
         """
         Open the spider
         """
 
-        assert spider.name == "tapology_spider"
+        assert spider.name == "fightoddsio_spider"
+
+    def process_item(self, item, spider):
+        if isinstance(item, FightOddsIOFighterItem):
+            adapter = ItemAdapter(item)
+            if adapter["FIGHTER_SLUG"] in self.fighter_slugs_seen:
+                raise DropItem("Duplicate fighter")
+            else:
+                self.fighter_slugs_seen.add(adapter["FIGHTER_SLUG"])
+
+        return item
+
+
+class FightOddsIOResultsPipeline:
+    """
+    Item pipeline for FightOdds.io historical bouts and fighters data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize pipeline object
+        """
+
+        self.scrape_type = None
+
+        self.fighters = []
+        self.bouts = []
+
+        self.conn = sqlite3.connect(
+            os.path.join(
+                os.path.dirname(__file__), "..", "..", "..", "data", "results.db"
+            ),
+            detect_types=sqlite3.PARSE_DECLTYPES,
+        )
+        self.cur = self.conn.cursor()
+        self.cur.execute(CREATE_FIGHTODDSIO_FIGHTERS_TABLE)
+        self.cur.execute(CREATE_FIGHTODDSIO_BOUTS_TABLE)
+
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
+
+        assert spider.name == "fightoddsio_spider"
         self.scrape_type = spider.scrape_type
 
     def process_item(self, item, spider):
         """
-        Process TapologyBoutItem objects
+        Process item objects
         """
 
-        if isinstance(item, TapologyBoutItem):
-            self.rows.append(item)
+        if isinstance(item, FightOddsIOFighterItem):
+            self.fighters.append(dict(item))
+        elif isinstance(item, FightOddsIOBoutItem):
+            self.bouts.append(dict(item))
 
         return item
 
     def close_spider(self, spider):
         """
-        Inserts the scraped data into the database and closes the spider
+        Insert the scraped data into the database and close the spider
         """
 
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM FIGHTODDSIO_FIGHTERS")
+            self.cur.execute("DELETE FROM FIGHTODDSIO_BOUTS")
 
-class FightMatrixFightersPipeline:
-    """
-    Item pipeline for Fight Matrix fighter data
-    """
+        fighters_df = pd.DataFrame(self.fighters)
+        bouts_df = pd.DataFrame(self.bouts).sort_values(by=["DATE", "BOUT_ORDINAL"])
 
+        if self.scrape_type == "most_recent":
+            fighter_slugs = fighters_df["FIGHTER_SLUG"].values.tolist()
+            self.cur.executemany(
+                "DELETE FROM FIGHTODDSIO_FIGHTERS WHERE FIGHTER_SLUG = ?;",
+                [(e,) for e in fighter_slugs],
+            )
+            bout_slugs = bouts_df["BOUT_SLUG"].values.tolist()
+            self.cur.executemany(
+                "DELETE FROM FIGHTODDSIO_BOUTS WHERE BOUT_SLUG = ?;",
+                [(e,) for e in bout_slugs],
+            )
 
-class FightMatrixRankingsPipeline:
-    """
-    Item pipeline for Fight Matrix rankings data
-    """
+        fighters_df.to_sql(
+            "FIGHTODDSIO_FIGHTERS",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
+        bouts_df.to_sql(
+            "FIGHTODDSIO_BOUTS",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
 
-
-class UFCStatsUpcomingEventPipeline:
-    """
-    Item pipeline for upcoming event data from UFCStats
-    """
-
-
-class TapologyUpcomingEventPipeline:
-    """
-    Item pipeline for upcoming event data from Tapology
-    """
-
-
-class FightOddsUpcomingEventPipeline:
-    """
-    Item pipeline for upcoming event betting odds data from Fight Odds
-    """
+        self.conn.commit()
+        self.conn.close()

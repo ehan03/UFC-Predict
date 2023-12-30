@@ -59,5 +59,4 @@ docs/_build/
 .env
 
 # Misc
-/data
 /notebooks_test
