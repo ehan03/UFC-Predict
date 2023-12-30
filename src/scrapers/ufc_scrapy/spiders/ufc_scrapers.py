@@ -504,7 +504,9 @@ class FightOddsIOSpider(Spider):
         json_resp = json.loads(response.body)
         edges = json_resp["data"]["event"]["fights"]["edges"]
         confirmed = [edge for edge in edges if not edge["node"]["isCancelled"]]
-        total_bouts = len(confirmed)
+        last_bout_ordinal = (
+            max([bout["node"]["order"] for bout in confirmed]) if confirmed else 0
+        )
 
         for bout in confirmed:
             bout_item = FightOddsIOBoutItem()
@@ -515,8 +517,10 @@ class FightOddsIOSpider(Spider):
             bout_item["DATE"] = info_dict["node"]["date"]
             bout_item["LOCATION"] = info_dict["node"]["city"]
             bout_item["VENUE"] = info_dict["node"]["venue"]
-            bout_item["BOUT_ORDINAL"] = total_bouts - bout["node"]["order"]
-            bout_item["BOUT_CARD_TYPE"] = bout["node"]["fightType"]
+            bout_item["BOUT_ORDINAL"] = last_bout_ordinal - bout["node"]["order"]
+            bout_item["BOUT_CARD_TYPE"] = (
+                bout["node"]["fightType"] if bout["node"]["fightType"] else None
+            )
 
             f1_slug = bout["node"]["fighter1"]["slug"]
             f2_slug = bout["node"]["fighter2"]["slug"]
@@ -537,8 +541,16 @@ class FightOddsIOSpider(Spider):
                 if bout["node"]["fighterWinner"]
                 else None
             )
-            bout_item["OUTCOME_METHOD_1"] = bout["node"]["methodOfVictory1"]
-            bout_item["OUTCOME_METHOD_2"] = bout["node"]["methodOfVictory2"]
+            bout_item["OUTCOME_METHOD_1"] = (
+                bout["node"]["methodOfVictory1"]
+                if bout["node"]["methodOfVictory1"]
+                else None
+            )
+            bout_item["OUTCOME_METHOD_2"] = (
+                bout["node"]["methodOfVictory2"]
+                if bout["node"]["methodOfVictory2"]
+                else None
+            )
             bout_item["END_ROUND"] = bout["node"]["round"]
             end_round_time_split = bout["node"]["duration"].split(":")
 
