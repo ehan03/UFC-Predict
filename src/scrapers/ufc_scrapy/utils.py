@@ -283,6 +283,7 @@ fragment FighterTableFightingStyle_fighter on FighterNode {
 fragment FighterTableInfo_fighter on FighterNode {
   firstName
   lastName
+  nickName
   birthDate
   nationality
   height

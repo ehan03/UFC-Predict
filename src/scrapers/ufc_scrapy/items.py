@@ -13,6 +13,7 @@ class UFCStatsFighterItem(Item):
 
     FIGHTER_ID = Field()
     FIGHTER_NAME = Field()
+    FIGHTER_NICKNAME = Field()
     HEIGHT_INCHES = Field()
     REACH_INCHES = Field()
     STANCE = Field()
@@ -165,6 +166,7 @@ class FightOddsIOFighterItem(Item):
 
     FIGHTER_SLUG = Field()
     FIGHTER_NAME = Field()
+    FIGHTER_NICKNAME = Field()
     HEIGHT_CENTIMETERS = Field()
     REACH_INCHES = Field()
     LEG_REACH_INCHES = Field()

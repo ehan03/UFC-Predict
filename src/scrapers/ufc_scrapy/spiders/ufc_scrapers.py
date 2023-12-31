@@ -159,6 +159,8 @@ class UFCStatsSpider(Spider):
         fighter_item["FIGHTER_NAME"] = (
             response.css("span.b-content__title-highlight::text").get().strip()
         )
+        nick = response.css("p.b-content__Nickname::text").get().strip()
+        fighter_item["FIGHTER_NICKNAME"] = nick if nick else None
 
         info = [
             x.strip()
@@ -603,6 +605,9 @@ class FightOddsIOSpider(Spider):
         fighter_item[
             "FIGHTER_NAME"
         ] = f"{fighter_data['firstName']} {fighter_data['lastName']}".strip()
+        fighter_item["FIGHTER_NICKNAME"] = (
+            fighter_data["nickName"] if fighter_data["nickName"] else None
+        )
         fighter_item["HEIGHT_CENTIMETERS"] = (
             float(fighter_data["height"])
             if fighter_data["height"] and fighter_data["height"] != "0.0"
