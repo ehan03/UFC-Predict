@@ -634,26 +634,31 @@ class FightOddsIOSpider(Spider):
             bout_item["FIGHTER_1_ODDS"] = bout["node"]["fighter1Odds"]
             bout_item["FIGHTER_2_ODDS"] = bout["node"]["fighter2Odds"]
 
-            yield bout_item
+            # Filter out cancelled events not marked cancelled
+            if (
+                bout_item["END_ROUND"]
+                or bout_item["END_ROUND_TIME_SECONDS"] is not None
+            ):
+                yield bout_item
 
-            fighter_slugs = [f1_slug, f2_slug]
-            for fighter_slug in fighter_slugs:
-                payload_fighter = json.dumps(
-                    {
-                        "query": FIGHTERS_GQL_QUERY,
-                        "variables": {"fighterSlug": fighter_slug},
-                    }
-                )
+                fighter_slugs = [f1_slug, f2_slug]
+                for fighter_slug in fighter_slugs:
+                    payload_fighter = json.dumps(
+                        {
+                            "query": FIGHTERS_GQL_QUERY,
+                            "variables": {"fighterSlug": fighter_slug},
+                        }
+                    )
 
-                yield Request(
-                    url=self.gql_url,
-                    method="POST",
-                    headers=self.headers,
-                    body=payload_fighter,
-                    callback=self.parse_fighter,
-                    dont_filter=True,
-                    cb_kwargs={"fighter_slug": fighter_slug},
-                )
+                    yield Request(
+                        url=self.gql_url,
+                        method="POST",
+                        headers=self.headers,
+                        body=payload_fighter,
+                        callback=self.parse_fighter,
+                        dont_filter=True,
+                        cb_kwargs={"fighter_slug": fighter_slug},
+                    )
 
     def parse_fighter(self, response, fighter_slug):
         json_resp = json.loads(response.body)
