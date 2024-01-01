@@ -423,6 +423,48 @@ class FightOddsIOSpider(Spider):
         }
         self.date_today = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
 
+        self.edge_case_bout_slugs = {
+            "gegard-mousasi-vs-mark-munoz-9476",
+            "cb-dollaway-vs-francis-carmont-9528",
+            "sean-strickland-vs-luke-barnatt-9586",
+            "niklas-backstrom-vs-tom-niinimaki-9641",
+            "nick-hein-vs-drew-dober-9701",
+            "magnus-cedenblad-vs-krzysztof-jotko-9760",
+            "iuri-alcantara-vs-vaughan-lee-9816",
+            "peter-sobotta-vs-pawel-pawlak-9873",
+            "maximo-blanco-vs-andy-ogle-9925",
+            "ruslan-magomedov-vs-viktor-pesta-9981",
+        }
+
+        self.duplicates = {
+            "ross-pearson-vs-george-sotiropoulos-9465",
+            "robert-whittaker-vs-bradley-scott-9516",
+            "norman-parke-vs-colin-fletcher-9575",
+            "hector-lombard-vs-rousimar-palhares-9631",
+            "chad-mendes-vs-yaotzin-meza-9688",
+            "joey-beltran-vs-igor-pokrajac-9747",
+            "mike-pierce-vs-seth-baczynski-9802",
+            "benny-alloway-vs-manuel-rodriguez-9861",
+            "mike-wilkinson-vs-brendan-loughnane-9914",
+            "cody-donovan-vs-nick-penner-9968",
+            "anthony-macias-vs-he-man-ali-gipson-265",
+            "heather-clark-vs-bec-rawlings-9842",
+            "masio-fullen-vs-alex-torres-10056",
+        }
+
+        self.dont_exist = {
+            "ken-shamrock-vs-tito-ortiz-8826",
+            "pascal-krauss-vs-adam-khaliev-9215",
+            "pascal-krauss-vs-adam-aliev-9279",
+            "ion-cutelaba-vs-luiz-philipe-lins-49546",
+            "justin-willis-vs-allen-crowder-20870",
+        }
+
+        self.falsely_cancelled = {
+            "alexander-hernandez-vs-beneil-dariush-22185",
+            "cm-punk-vs-mike-jackson-22023",
+        }
+
     def start_requests(self):
         payload = json.dumps(
             {
@@ -460,8 +502,11 @@ class FightOddsIOSpider(Spider):
         for edge, pk in zip(edges, event_pks):
             event_name = edge["node"]["name"]
 
-            if "Dana White" in event_name:
+            if "UFC" not in event_name and "The Ultimate Fighter" not in event_name:
                 continue
+
+            if edge["node"]["slug"] == "ufc-fight-night-85-hunt-vs-mir":
+                edge["node"]["date"] = "2016-03-19"
 
             payload_fights = json.dumps(
                 {"query": FIGHTS_GQL_QUERY, "variables": {"eventPk": pk}}
@@ -505,21 +550,36 @@ class FightOddsIOSpider(Spider):
     def parse_event_fights(self, response, info_dict):
         json_resp = json.loads(response.body)
         edges = json_resp["data"]["event"]["fights"]["edges"]
-        confirmed = [edge for edge in edges if not edge["node"]["isCancelled"]]
-        last_bout_ordinal = (
-            max([bout["node"]["order"] for bout in confirmed]) if confirmed else 0
-        )
+        confirmed = [
+            edge
+            for edge in edges
+            if not edge["node"]["isCancelled"]
+            or edge["node"]["slug"] in self.falsely_cancelled
+        ]
 
         for bout in confirmed:
+            if (
+                bout["node"]["slug"] in self.duplicates
+                or bout["node"]["slug"] in self.dont_exist
+            ):
+                continue
+
             bout_item = FightOddsIOBoutItem()
 
             bout_item["BOUT_SLUG"] = bout["node"]["slug"]
             bout_item["EVENT_SLUG"] = info_dict["node"]["slug"]
-            bout_item["EVENT_NAME"] = info_dict["node"]["name"]
+            bout_item["EVENT_NAME"] = info_dict["node"]["name"].strip()
             bout_item["DATE"] = info_dict["node"]["date"]
-            bout_item["LOCATION"] = info_dict["node"]["city"]
-            bout_item["VENUE"] = info_dict["node"]["venue"]
-            bout_item["BOUT_ORDINAL"] = last_bout_ordinal - bout["node"]["order"]
+            bout_item["LOCATION"] = info_dict["node"]["city"].strip()
+            bout_item["VENUE"] = info_dict["node"]["venue"].strip()
+            bout_item["BOUT_ORDINAL"] = -1 * bout["node"]["order"]
+
+            if bout["node"]["slug"] in self.edge_case_bout_slugs:
+                bout_item["EVENT_SLUG"] = "ufc-fight-night-41-munoz-vs-mousasi"
+                bout_item["EVENT_NAME"] = "UFC Fight Night 41: Munoz vs. Mousasi"
+                bout_item["LOCATION"] = "Berlin, Germany"
+                bout_item["VENUE"] = "O2 World Arena"
+
             bout_item["BOUT_CARD_TYPE"] = (
                 bout["node"]["fightType"] if bout["node"]["fightType"] else None
             )
@@ -630,7 +690,7 @@ class FightOddsIOSpider(Spider):
             fighter_data["stance"] if fighter_data["stance"] else None
         )
         fighter_item["NATIONALITY"] = (
-            fighter_data["nationality"] if fighter_data["nationality"] else None
+            fighter_data["nationality"].strip() if fighter_data["nationality"] else None
         )
         # 1970-01-01 used as placeholder for missing DOB
         fighter_item["DATE_OF_BIRTH"] = (

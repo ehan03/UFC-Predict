@@ -89,7 +89,7 @@ class UFCStatsResultsPipeline:
 
         fighters_df = pd.DataFrame(self.fighters)
         bouts_overall_df = pd.DataFrame(self.bouts_overall).sort_values(
-            by=["DATE", "BOUT_ORDINAL"]
+            by=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
         )
         bout_ids = bouts_overall_df["BOUT_ID"].values.tolist()
         bouts_by_round_df = pd.DataFrame(self.bouts_by_round).sort_values(
@@ -99,39 +99,34 @@ class UFCStatsResultsPipeline:
             else x.map(lambda e: bout_ids.index(e)),
         )
 
+        flag = True
         if self.scrape_type == "most_recent":
-            fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
-            self.cur.executemany(
-                "DELETE FROM UFCSTATS_FIGHTERS WHERE FIGHTER_ID = ?;",
-                [(e,) for e in fighter_ids],
-            )
-            self.cur.executemany(
-                "DELETE FROM UFCSTATS_BOUTS_OVERALL WHERE BOUT_ID = ?;",
-                [(e,) for e in bout_ids],
-            )
-            self.cur.executemany(
-                "DELETE FROM UFCSTATS_BOUTS_BY_ROUND WHERE BOUT_ID = ?;",
-                [(e,) for e in bout_ids],
-            )
+            most_recent_event_id = bouts_overall_df["EVENT_ID"].values[0]
+            res = self.cur.execute(
+                "SELECT EVENT_ID FROM UFCSTATS_BOUTS_OVERALL WHERE EVENT_ID = ?;",
+                (most_recent_event_id,),
+            ).fetchall()
+            flag = len(res) == 0
 
-        fighters_df.to_sql(
-            "UFCSTATS_FIGHTERS",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
-        bouts_overall_df.to_sql(
-            "UFCSTATS_BOUTS_OVERALL",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
-        bouts_by_round_df.to_sql(
-            "UFCSTATS_BOUTS_BY_ROUND",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
+        if flag:
+            fighters_df.to_sql(
+                "UFCSTATS_FIGHTERS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
+            bouts_overall_df.to_sql(
+                "UFCSTATS_BOUTS_OVERALL",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
+            bouts_by_round_df.to_sql(
+                "UFCSTATS_BOUTS_BY_ROUND",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
 
         self.conn.commit()
         self.conn.close()
@@ -223,32 +218,32 @@ class FightOddsIOResultsPipeline:
             self.cur.execute("DELETE FROM FIGHTODDSIO_BOUTS")
 
         fighters_df = pd.DataFrame(self.fighters)
-        bouts_df = pd.DataFrame(self.bouts).sort_values(by=["DATE", "BOUT_ORDINAL"])
+        bouts_df = pd.DataFrame(self.bouts).sort_values(
+            by=["DATE", "EVENT_SLUG", "BOUT_ORDINAL"]
+        )
 
+        flag = True
         if self.scrape_type == "most_recent":
-            fighter_slugs = fighters_df["FIGHTER_SLUG"].values.tolist()
-            self.cur.executemany(
-                "DELETE FROM FIGHTODDSIO_FIGHTERS WHERE FIGHTER_SLUG = ?;",
-                [(e,) for e in fighter_slugs],
-            )
-            bout_slugs = bouts_df["BOUT_SLUG"].values.tolist()
-            self.cur.executemany(
-                "DELETE FROM FIGHTODDSIO_BOUTS WHERE BOUT_SLUG = ?;",
-                [(e,) for e in bout_slugs],
-            )
+            most_recent_event_slug = bouts_df["EVENT_SLUG"].values[0]
+            res = self.cur.execute(
+                "SELECT EVENT_SLUG FROM FIGHTODDSIO_BOUTS WHERE EVENT_SLUG = ?;",
+                (most_recent_event_slug,),
+            ).fetchall()
+            flag = len(res) == 0
 
-        fighters_df.to_sql(
-            "FIGHTODDSIO_FIGHTERS",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
-        bouts_df.to_sql(
-            "FIGHTODDSIO_BOUTS",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
+        if flag:
+            fighters_df.to_sql(
+                "FIGHTODDSIO_FIGHTERS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
+            bouts_df.to_sql(
+                "FIGHTODDSIO_BOUTS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
 
         self.conn.commit()
         self.conn.close()
