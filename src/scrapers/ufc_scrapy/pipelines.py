@@ -108,13 +108,13 @@ class UFCStatsResultsPipeline:
             ).fetchall()
             flag = len(res) == 0
 
-        if flag:
-            fighters_df.to_sql(
-                "UFCSTATS_FIGHTERS",
-                self.conn,
-                if_exists="append",
-                index=False,
+            fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
+            self.cur.executemany(
+                "DELETE FROM UFCSTATS_FIGHTERS WHERE FIGHTER_ID = ?;",
+                [(fighter_id,) for fighter_id in fighter_ids],
             )
+
+        if flag:
             bouts_overall_df.to_sql(
                 "UFCSTATS_BOUTS_OVERALL",
                 self.conn,
@@ -127,6 +127,13 @@ class UFCStatsResultsPipeline:
                 if_exists="append",
                 index=False,
             )
+
+        fighters_df.to_sql(
+            "UFCSTATS_FIGHTERS",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
 
         self.conn.commit()
         self.conn.close()
@@ -231,19 +238,26 @@ class FightOddsIOResultsPipeline:
             ).fetchall()
             flag = len(res) == 0
 
-        if flag:
-            fighters_df.to_sql(
-                "FIGHTODDSIO_FIGHTERS",
-                self.conn,
-                if_exists="append",
-                index=False,
+            fighter_slugs = fighters_df["FIGHTER_SLUG"].values.tolist()
+            self.cur.executemany(
+                "DELETE FROM FIGHTODDSIO_FIGHTERS WHERE FIGHTER_SLUG = ?;",
+                [(fighter_slug,) for fighter_slug in fighter_slugs],
             )
+
+        if flag:
             bouts_df.to_sql(
                 "FIGHTODDSIO_BOUTS",
                 self.conn,
                 if_exists="append",
                 index=False,
             )
+
+        fighters_df.to_sql(
+            "FIGHTODDSIO_FIGHTERS",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
 
         self.conn.commit()
         self.conn.close()
