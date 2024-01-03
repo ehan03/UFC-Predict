@@ -109,10 +109,15 @@ class UFCStatsResultsPipeline:
             flag = len(res) == 0
 
             fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
-            self.cur.executemany(
-                "DELETE FROM UFCSTATS_FIGHTERS WHERE FIGHTER_ID = ?;",
-                [(fighter_id,) for fighter_id in fighter_ids],
-            )
+            old_ids = []
+            for fighter_id in fighter_ids:
+                res = self.cur.execute(
+                    "SELECT FIGHTER_ID FROM UFCSTATS_FIGHTERS WHERE FIGHTER_ID = ?;"
+                ).fetchall()
+                if res:
+                    old_ids.append(fighter_id)
+
+            fighters_df = fighters_df[~fighters_df["FIGHTER_ID"].isin(old_ids)]
 
         if flag:
             bouts_overall_df.to_sql(
@@ -128,12 +133,13 @@ class UFCStatsResultsPipeline:
                 index=False,
             )
 
-        fighters_df.to_sql(
-            "UFCSTATS_FIGHTERS",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
+        if fighters_df.shape[0]:
+            fighters_df.to_sql(
+                "UFCSTATS_FIGHTERS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
 
         self.conn.commit()
         self.conn.close()
@@ -239,10 +245,15 @@ class FightOddsIOResultsPipeline:
             flag = len(res) == 0
 
             fighter_slugs = fighters_df["FIGHTER_SLUG"].values.tolist()
-            self.cur.executemany(
-                "DELETE FROM FIGHTODDSIO_FIGHTERS WHERE FIGHTER_SLUG = ?;",
-                [(fighter_slug,) for fighter_slug in fighter_slugs],
-            )
+            old_slugs = []
+            for fighter_slug in fighter_slugs:
+                res = self.cur.execute(
+                    "SELECT FIGHTER_SLUG FROM FIGHTODDSIO_FIGHTERS WHERE FIGHTER_SLUG = ?;"
+                ).fetchall()
+                if res:
+                    old_slugs.append(fighter_slug)
+
+            fighters_df = fighters_df[~fighters_df["FIGHTER_SLUG"].isin(old_slugs)]
 
         if flag:
             bouts_df.to_sql(
@@ -252,12 +263,13 @@ class FightOddsIOResultsPipeline:
                 index=False,
             )
 
-        fighters_df.to_sql(
-            "FIGHTODDSIO_FIGHTERS",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
+        if fighters_df.shape[0]:
+            fighters_df.to_sql(
+                "FIGHTODDSIO_FIGHTERS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
 
         self.conn.commit()
         self.conn.close()
