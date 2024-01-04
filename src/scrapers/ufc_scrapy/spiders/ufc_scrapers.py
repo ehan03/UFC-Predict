@@ -195,6 +195,13 @@ class UFCStatsSpider(Spider):
         bout_overall_item["BOUT_ORDINAL"] = bout_ordinal
         bout_overall_item["WEIGHT_CLASS"] = weight_class
 
+        if weight_class.startswith("Women's"):
+            bout_overall_item["BOUT_GENDER"] = "F"
+        elif weight_class == "Catch Weight":
+            bout_overall_item["BOUT_GENDER"] = None
+        else:
+            bout_overall_item["BOUT_GENDER"] = "M"
+
         fighter_urls = response.css(
             "a.b-link.b-fight-details__person-link::attr(href)"
         ).getall()
@@ -216,7 +223,7 @@ class UFCStatsSpider(Spider):
         ).getall()
         if bonus_img_src:
             bonus_img_names = [x.split("/")[-1] for x in bonus_img_src]
-            if any(["perf.png", "sub.png", "ko.png"]) in bonus_img_names:
+            if any(x in ["perf.png", "sub.png", "ko.png"] for x in bonus_img_names):
                 bout_overall_item["BOUT_PERF_BONUS"] = 1
             else:
                 bout_overall_item["BOUT_PERF_BONUS"] = 0
@@ -579,6 +586,10 @@ class FightOddsIOSpider(Spider):
                 bout_item["EVENT_NAME"] = "UFC Fight Night 41: Munoz vs. Mousasi"
                 bout_item["LOCATION"] = "Berlin, Germany"
                 bout_item["VENUE"] = "O2 World Arena"
+
+            if info_dict["node"]["slug"] == "ufc-fight-night-65-miocic-vs-hunt":
+                bout_item["LOCATION"] = "Adelaide, South Australia"
+                bout_item["VENUE"] = "Adelaide Entertainment Center"
 
             bout_item["BOUT_CARD_TYPE"] = (
                 bout["node"]["fightType"] if bout["node"]["fightType"] else None

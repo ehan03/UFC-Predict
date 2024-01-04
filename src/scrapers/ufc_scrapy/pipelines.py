@@ -116,8 +116,42 @@ class UFCStatsResultsPipeline:
                 ).fetchall()
                 if res:
                     old_ids.append(fighter_id)
-
             fighters_df = fighters_df[~fighters_df["FIGHTER_ID"].isin(old_ids)]
+
+            if flag:
+                unknown_gender = bouts_overall_df.loc[
+                    bouts_overall_df["BOUT_GENDER"].isna(),
+                    ["BOUT_ID", "RED_FIGHTER_ID", "BLUE_FIGHTER_ID"],
+                ]
+                for row in unknown_gender.itertuples():
+                    gender = self.cur.execute(
+                        "SELECT DISTINCT BOUT_GENDER FROM UFCSTATS_BOUTS_OVERALL WHERE RED_FIGHTER_ID IN (?, ?) OR BLUE_FIGHTER_ID IN (?, ?);",
+                        (row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID),
+                    ).fetchone()[0]
+                    bouts_overall_df.loc[
+                        bouts_overall_df["BOUT_ID"] == row.BOUT_ID, "BOUT_GENDER"
+                    ] = gender
+        else:
+            unknown_gender = bouts_overall_df.loc[
+                bouts_overall_df["BOUT_GENDER"].isna(),
+                ["BOUT_ID", "RED_FIGHTER_ID", "BLUE_FIGHTER_ID"],
+            ]
+            for row in unknown_gender.itertuples():
+                gender = bouts_overall_df.loc[
+                    bouts_overall_df["BOUT_GENDER"].notna()
+                    & (
+                        bouts_overall_df["RED_FIGHTER_ID"].isin(
+                            [row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID]
+                        )
+                        | bouts_overall_df["BLUE_FIGHTER_ID"].isin(
+                            [row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID]
+                        )
+                    ),
+                    "BOUT_GENDER",
+                ].unique()[0]
+                bouts_overall_df.loc[
+                    bouts_overall_df["BOUT_ID"] == row.BOUT_ID, "BOUT_GENDER"
+                ] = gender
 
         if flag:
             bouts_overall_df.to_sql(
@@ -252,7 +286,6 @@ class FightOddsIOResultsPipeline:
                 ).fetchall()
                 if res:
                     old_slugs.append(fighter_slug)
-
             fighters_df = fighters_df[~fighters_df["FIGHTER_SLUG"].isin(old_slugs)]
 
         if flag:

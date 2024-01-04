@@ -40,6 +40,7 @@ class UFCStatsBoutOverallItem(Item):
     RED_OUTCOME = Field()
     BLUE_OUTCOME = Field()
     WEIGHT_CLASS = Field()
+    BOUT_GENDER = Field()
     BOUT_LONGNAME = Field()
     BOUT_PERF_BONUS = Field()
     OUTCOME_METHOD = Field()
