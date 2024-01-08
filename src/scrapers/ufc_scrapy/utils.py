@@ -292,3 +292,107 @@ fragment FighterTableInfo_fighter on FighterNode {
   fightingStyle
 }
 """
+
+EVENTS_UPCOMING_GQL_QUERY = """
+query EventsPromotionQuery(
+  $promotionSlug: String
+  $dateLt: Date
+  $dateGte: Date
+  $after: String
+  $first: Int
+  $orderBy: String
+) {
+  promotion: promotionBySlug(slug: $promotionSlug) {
+    ...EventsPromotionTabPanel_promotion_34GGrn
+    id
+  }
+}
+
+fragment EventCardList_events on EventNodeConnection {
+  edges {
+    node {
+      ...EventCard_event
+    }
+  }
+}
+
+fragment EventCard_event on EventNode {
+  name
+  pk
+  slug
+  date
+  venue
+  city
+}
+
+fragment EventsPromotionTabPanel_promotion_34GGrn on PromotionNode {
+  ...PromotionEventCardListInfiniteScroll_promotion_34GGrn
+}
+
+fragment PromotionEventCardListInfiniteScroll_promotion_34GGrn on PromotionNode {
+  events(first: $first, after: $after, date_Gte: $dateGte, date_Lt: $dateLt, orderBy: $orderBy) {
+    ...EventCardList_events
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+"""
+
+EVENT_ODDS_GQL_QUERY = """
+query EventOddsQuery(
+  $eventPk: Int!
+) {
+  eventOfferTable(pk: $eventPk) {
+    slug
+    ...EventTabPanelOdds_eventOfferTable
+  }
+}
+
+fragment EventOfferTable_eventOfferTable on EventOfferTableNode {
+  name
+  pk
+  fightOffers {
+    edges {
+      node {
+        fighter1 {
+          slug
+        }
+        fighter2 {
+          slug
+        }
+        slug
+        isCancelled
+        straightOffers {
+          edges {
+            node {
+              sportsbook {
+                shortName
+                slug
+              }
+              outcome1 {
+                odds
+              }
+              outcome2 {
+                odds
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment EventTabPanelOdds_eventOfferTable on EventOfferTableNode {
+  fightOffers {
+    edges {
+      node {
+        isCancelled
+      }
+    }
+  }
+  ...EventOfferTable_eventOfferTable
+}
+"""

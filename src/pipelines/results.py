@@ -9,8 +9,8 @@ from scrapy.crawler import CrawlerProcess
 
 # local imports
 from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import (
-    FightOddsIOSpider,
-    UFCStatsSpider,
+    FightOddsIOResultsSpider,
+    UFCStatsResultsSpider,
 )
 
 
@@ -29,17 +29,17 @@ class ResultsPipeline:
 
     def get_results(self):
         """
-        Get historical data from UFCStats and FightOddsIO
+        Get historical data from UFC Stats and FightOdds.io
         """
 
         process = CrawlerProcess(settings={"LOG_LEVEL": "INFO"})
-        process.crawl(UFCStatsSpider, scrape_type=self.scrape_type)
-        process.crawl(FightOddsIOSpider, scrape_type=self.scrape_type)
+        process.crawl(UFCStatsResultsSpider, scrape_type=self.scrape_type)
+        process.crawl(FightOddsIOResultsSpider, scrape_type=self.scrape_type)
         process.start()
 
     def update_ufcstats_fightoddsio_linkage(self):
         """
-        Update linkage between UFCStats and FightOddsIO
+        Update linkage between UFCStats and FightOdds.io
         """
 
         pass
@@ -47,13 +47,6 @@ class ResultsPipeline:
     def update_pnl(self):
         """
         Update PnL on bets
-        """
-
-        pass
-
-    def update_features(self):
-        """
-        Update features for models
         """
 
         pass

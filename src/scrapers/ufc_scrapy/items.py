@@ -108,28 +108,21 @@ class UFCStatsBoutRoundItem(Item):
     BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED = Field()
 
 
-class UFCStatsUpcomingBoutItem(Item):
+class FightOddsIOFighterItem(Item):
     """
-    Item class for upcoming bout data from UFCStats
+    Item class for fighter data from FightOdds.io
     """
 
-    BOUT_ID = Field()
-    EVENT_ID = Field()
-    EVENT_NAME = Field()
-    DATE = Field()
-    LOCATION = Field()
-    BOUT_ORDINAL = Field()
-
-    RED_FIGHTER_ID = Field()
-    BLUE_FIGHTER_ID = Field()
-    WEIGHT_CLASS = Field()
-    BOUT_LONGNAME = Field()
-
-
-class FightOddsIOUpcomingBoutOddsItem(Item):
-    """
-    Item class for upcoming bout betting odds from FightOdds.io
-    """
+    FIGHTER_SLUG = Field()
+    FIGHTER_NAME = Field()
+    FIGHTER_NICKNAME = Field()
+    HEIGHT_CENTIMETERS = Field()
+    REACH_INCHES = Field()
+    LEG_REACH_INCHES = Field()
+    FIGHTING_STYLE = Field()
+    STANCE = Field()
+    NATIONALITY = Field()
+    DATE_OF_BIRTH = Field()
 
 
 class FightOddsIOBoutItem(Item):
@@ -155,23 +148,42 @@ class FightOddsIOBoutItem(Item):
     OUTCOME_METHOD_2 = Field()
     END_ROUND = Field()
     END_ROUND_TIME_SECONDS = Field()
-    TOTAL_TIME_SECONDS = Field()
     FIGHTER_1_ODDS = Field()
     FIGHTER_2_ODDS = Field()
 
 
-class FightOddsIOFighterItem(Item):
+class UFCStatsUpcomingBoutItem(Item):
     """
-    Item class for fighter data from FightOdds.io
+    Item class for upcoming bout data from UFCStats
     """
 
-    FIGHTER_SLUG = Field()
-    FIGHTER_NAME = Field()
-    FIGHTER_NICKNAME = Field()
-    HEIGHT_CENTIMETERS = Field()
-    REACH_INCHES = Field()
-    LEG_REACH_INCHES = Field()
-    FIGHTING_STYLE = Field()
-    STANCE = Field()
-    NATIONALITY = Field()
-    DATE_OF_BIRTH = Field()
+    BOUT_ID = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    BOUT_ORDINAL = Field()
+
+    RED_FIGHTER_ID = Field()
+    BLUE_FIGHTER_ID = Field()
+    WEIGHT_CLASS = Field()
+    BOUT_GENDER = Field()
+    BOUT_LONGNAME = Field()
+
+
+class FightOddsIOUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from FightOdds.io
+    """
+
+    BOUT_SLUG = Field()
+    EVENT_SLUG = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    VENUE = Field()
+
+    FIGHTER_1_SLUG = Field()
+    FIGHTER_2_SLUG = Field()
+    FIGHTER_1_ODDS_DRAFTKINGS = Field()
+    FIGHTER_2_ODDS_DRAFTKINGS = Field()

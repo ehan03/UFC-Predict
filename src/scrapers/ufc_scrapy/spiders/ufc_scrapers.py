@@ -16,12 +16,16 @@ from scrapy.spiders import Spider
 from src.scrapers.ufc_scrapy.items import (
     FightOddsIOBoutItem,
     FightOddsIOFighterItem,
+    FightOddsIOUpcomingBoutItem,
     UFCStatsBoutOverallItem,
     UFCStatsBoutRoundItem,
     UFCStatsFighterItem,
+    UFCStatsUpcomingBoutItem,
 )
 from src.scrapers.ufc_scrapy.utils import (
+    EVENT_ODDS_GQL_QUERY,
     EVENTS_RECENT_GQL_QUERY,
+    EVENTS_UPCOMING_GQL_QUERY,
     FIGHTERS_GQL_QUERY,
     FIGHTS_GQL_QUERY,
     convert_height,
@@ -31,12 +35,12 @@ from src.scrapers.ufc_scrapy.utils import (
 )
 
 
-class UFCStatsSpider(Spider):
+class UFCStatsResultsSpider(Spider):
     """
-    Spider for scraping UFC bout and fighter data from UFCStats
+    Spider for scraping UFC bout and fighter data from UFC Stats
     """
 
-    name = "ufcstats_spider"
+    name = "ufcstats_results_spider"
     allowed_domains = ["ufcstats.com"]
     start_urls = [
         "http://ufcstats.com/statistics/events/completed?page=all",
@@ -58,7 +62,8 @@ class UFCStatsSpider(Spider):
         "RETRY_TIMES": 1,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.UFCStatsResultsPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsCompletedBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -151,36 +156,6 @@ class UFCStatsSpider(Spider):
         ).getall()
 
         yield from response.follow_all(fighter_urls, self.parse_fighter)
-
-    def parse_fighter(self, response):
-        fighter_item = UFCStatsFighterItem()
-
-        fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
-        fighter_item["FIGHTER_NAME"] = (
-            response.css("span.b-content__title-highlight::text").get().strip()
-        )
-        nick = response.css("p.b-content__Nickname::text").get().strip()
-        fighter_item["FIGHTER_NICKNAME"] = nick if nick else None
-
-        info = [
-            x.strip()
-            for i, x in enumerate(
-                response.css(
-                    "li.b-list__box-list-item.b-list__box-list-item_type_block::text"
-                ).getall()
-            )
-            if (i % 2 == 1 and i != 19)
-        ]
-        fighter_item["HEIGHT_INCHES"] = convert_height(info[0])
-        fighter_item["REACH_INCHES"] = (
-            int(info[2].replace('"', "")) if info[2] != "--" else None
-        )
-        fighter_item["STANCE"] = info[3] if info[3] else None
-        fighter_item["DATE_OF_BIRTH"] = (
-            pd.to_datetime(info[4]).strftime("%Y-%m-%d") if info[4] != "--" else None
-        )
-
-        yield fighter_item
 
     def parse_bout(
         self, response, event_id, event_name, date, location, bout_ordinal, weight_class
@@ -386,13 +361,43 @@ class UFCStatsSpider(Spider):
 
         yield bout_overall_item
 
+    def parse_fighter(self, response):
+        fighter_item = UFCStatsFighterItem()
 
-class FightOddsIOSpider(Spider):
+        fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
+        fighter_item["FIGHTER_NAME"] = (
+            response.css("span.b-content__title-highlight::text").get().strip()
+        )
+        nick = response.css("p.b-content__Nickname::text").get().strip()
+        fighter_item["FIGHTER_NICKNAME"] = nick if nick else None
+
+        info = [
+            x.strip()
+            for i, x in enumerate(
+                response.css(
+                    "li.b-list__box-list-item.b-list__box-list-item_type_block::text"
+                ).getall()
+            )
+            if (i % 2 == 1 and i != 19)
+        ]
+        fighter_item["HEIGHT_INCHES"] = convert_height(info[0])
+        fighter_item["REACH_INCHES"] = (
+            int(info[2].replace('"', "")) if info[2] != "--" else None
+        )
+        fighter_item["STANCE"] = info[3] if info[3] else None
+        fighter_item["DATE_OF_BIRTH"] = (
+            pd.to_datetime(info[4]).strftime("%Y-%m-%d") if info[4] != "--" else None
+        )
+
+        yield fighter_item
+
+
+class FightOddsIOResultsSpider(Spider):
     """
     Spider for scraping historical fighter and bout data from FightOdds.io
     """
 
-    name = "fightoddsio_spider"
+    name = "fightoddsio_results_spider"
     allowed_domains = ["fightodds.io"]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
@@ -412,8 +417,8 @@ class FightOddsIOSpider(Spider):
         "LOG_LEVEL": "INFO",
         "LOG_FORMATTER": "ufc_scrapy.logformatter.PoliteLogFormatter",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.FightOddsIOFightersDuplicatesPipeline": 100,
-            "ufc_scrapy.pipelines.FightOddsIOResultsPipeline": 200,
+            "ufc_scrapy.pipelines.FightOddsIOFightersPipeline": 100,
+            "ufc_scrapy.pipelines.FightOddsIOCompletedBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -428,8 +433,9 @@ class FightOddsIOSpider(Spider):
             "X-Requested-With": "XMLHttpRequest",
             "Content-Type": "application/json",
         }
-        self.date_today = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
+        self.date_today = datetime.now(timezone.utc).date()
 
+        # Weird cases as a result of the website and its DB having awful design
         self.edge_case_bout_slugs = {
             "gegard-mousasi-vs-mark-munoz-9476",
             "cb-dollaway-vs-francis-carmont-9528",
@@ -442,7 +448,6 @@ class FightOddsIOSpider(Spider):
             "maximo-blanco-vs-andy-ogle-9925",
             "ruslan-magomedov-vs-viktor-pesta-9981",
         }
-
         self.duplicates = {
             "ross-pearson-vs-george-sotiropoulos-9465",
             "robert-whittaker-vs-bradley-scott-9516",
@@ -458,7 +463,6 @@ class FightOddsIOSpider(Spider):
             "heather-clark-vs-bec-rawlings-9842",
             "masio-fullen-vs-alex-torres-10056",
         }
-
         self.dont_exist = {
             "ken-shamrock-vs-tito-ortiz-8826",
             "pascal-krauss-vs-adam-khaliev-9215",
@@ -466,7 +470,6 @@ class FightOddsIOSpider(Spider):
             "ion-cutelaba-vs-luiz-philipe-lins-49546",
             "justin-willis-vs-allen-crowder-20870",
         }
-
         self.falsely_cancelled = {
             "alexander-hernandez-vs-beneil-dariush-22185",
             "cm-punk-vs-mike-jackson-22023",
@@ -478,7 +481,7 @@ class FightOddsIOSpider(Spider):
                 "query": EVENTS_RECENT_GQL_QUERY,
                 "variables": {
                     "promotionSlug": "ufc",
-                    "dateLt": self.date_today,
+                    "dateLt": self.date_today.strftime("%Y-%m-%d"),
                     "after": "",
                     "first": 100,
                     "orderBy": "-date",
@@ -497,7 +500,6 @@ class FightOddsIOSpider(Spider):
 
     def parse_infinite_scroll(self, response):
         json_resp = json.loads(response.body)
-
         events = json_resp["data"]["promotion"]["events"]
         edges = events["edges"]
         event_pks = [edge["node"]["pk"] for edge in edges]
@@ -537,7 +539,7 @@ class FightOddsIOSpider(Spider):
                     "query": EVENTS_RECENT_GQL_QUERY,
                     "variables": {
                         "promotionSlug": "ufc",
-                        "dateLt": self.date_today,
+                        "dateLt": self.date_today.strftime("%Y-%m-%d"),
                         "after": cursor_pos,
                         "first": 100,
                         "orderBy": "-date",
@@ -637,11 +639,6 @@ class FightOddsIOSpider(Spider):
                 end_round_time_seconds = None
 
             bout_item["END_ROUND_TIME_SECONDS"] = end_round_time_seconds
-            bout_item["TOTAL_TIME_SECONDS"] = (
-                (300 * (bout["node"]["round"] - 1) + end_round_time_seconds)
-                if bout["node"]["round"] and end_round_time_seconds
-                else None
-            )
             bout_item["FIGHTER_1_ODDS"] = bout["node"]["fighter1Odds"]
             bout_item["FIGHTER_2_ODDS"] = bout["node"]["fighter2Odds"]
 
@@ -718,32 +715,125 @@ class FightOddsIOSpider(Spider):
         yield fighter_item
 
 
-class UpcomingEventSpider(Spider):
+class UFCStatsUpcomingEventSpider(Spider):
     """
-    Spider for scraping upcoming UFC event from UFCStats and corresponding
-    betting odds from FightOdds.io
+    Spider for scraping upcoming UFC event data from UFCStats
     """
 
-    name = "upcoming_event_spider"
-    allowed_domains = ["ufcstats.com", "fightodds.io"]
+    name = "ufcstats_upcoming_spider"
+    allowed_domains = ["ufcstats.com"]
     start_urls = ["http://www.ufcstats.com/statistics/events/upcoming"]
-    custom_settings = {}
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
+        "CONCURRENT_REQUESTS": 10,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 1,
+        "LOG_LEVEL": "INFO",
+        "ITEM_PIPELINES": {
+            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
+            "ufc_scrapy.pipelines.UFCStatsUpcomingBoutsPipeline": 200,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.date_today = datetime.now(timezone.utc).date()
 
     def parse(self, response):
-        today_utc = datetime.now(timezone.utc).date()
-        next_saturday = (today_utc + timedelta((5 - today_utc.weekday()) % 7)).strftime(
-            "%Y-%m-%d"
-        )
+        next_saturday = (
+            self.date_today + timedelta((5 - self.date_today.weekday()) % 7)
+        ).strftime("%Y-%m-%d")
 
         next_event_date = pd.to_datetime(
             response.css("span.b-statistics__date::text").get().strip()
         ).strftime("%Y-%m-%d")
 
         if next_event_date == next_saturday:
-            pass
+            upcoming_event_link = response.css(
+                """table.b-statistics__table-events > tbody > tr.b-statistics__table-row > td.b-statistics__table-col > 
+                i.b-statistics__table-content > a.b-link.b-link_style_black::attr(href)"""
+            ).get()
 
-    def parse_event(self, response):
-        pass
+            yield response.follow(
+                upcoming_event_link, callback=self.parse_upcoming_event
+            )
+
+    def parse_upcoming_event(self, response):
+        rows = response.css(
+            "tr.b-fight-details__table-row.b-fight-details__table-row__hover.js-fight-details-click"
+        )
+        bout_urls = []
+        weight_classes = []
+        for row in rows:
+            bout_urls.append(
+                row.css(
+                    """td.b-fight-details__table-col > p.b-fight-details__table-text > 
+                    a.b-link.b-link_style_black::attr(data-link)"""
+                ).get()
+            )
+            weight_classes.append(
+                row.css(
+                    """td.b-fight-details__table-col.l-page_align_left:not([style='width:100px']) >
+                    p.b-fight-details__table-text::text"""
+                )
+                .get()
+                .strip()
+            )
+        assert len(bout_urls) == len(weight_classes)
+
+        event_id = response.url.split("/")[-1]
+        event_name = (
+            response.css(
+                """h2.b-content__title > 
+                span.b-content__title-highlight::text"""
+            )
+            .get()
+            .strip()
+        )
+
+        date, location = [
+            x.strip()
+            for i, x in enumerate(
+                response.css("li.b-list__box-list-item::text").getall()
+            )
+            if i % 2 == 1
+        ]
+
+        for bout_ordinal, (bout_url, weight_class) in enumerate(
+            zip(reversed(bout_urls), reversed(weight_classes))
+        ):
+            yield response.follow(
+                bout_url,
+                callback=self.parse_upcoming_bout,
+                cb_kwargs={
+                    "event_id": event_id,
+                    "event_name": event_name,
+                    "date": date,
+                    "location": location,
+                    "bout_ordinal": bout_ordinal,
+                    "weight_class": weight_class,
+                },
+            )
+
+        fighter_urls = response.css(
+            """td[style='width:100px'].b-fight-details__table-col.l-page_align_left >
+            p.b-fight-details__table-text >
+            a.b-link.b-link_style_black::attr(href)
+            """
+        ).getall()
+
+        yield from response.follow_all(fighter_urls, self.parse_fighter)
 
     def parse_fighter(self, response):
         fighter_item = UFCStatsFighterItem()
@@ -752,6 +842,8 @@ class UpcomingEventSpider(Spider):
         fighter_item["FIGHTER_NAME"] = (
             response.css("span.b-content__title-highlight::text").get().strip()
         )
+        nick = response.css("p.b-content__Nickname::text").get().strip()
+        fighter_item["FIGHTER_NICKNAME"] = nick if nick else None
 
         info = [
             x.strip()
@@ -764,17 +856,238 @@ class UpcomingEventSpider(Spider):
         ]
         fighter_item["HEIGHT_INCHES"] = convert_height(info[0])
         fighter_item["REACH_INCHES"] = (
-            float(info[2].replace('"', "")) if info[2] != "--" else None
+            int(info[2].replace('"', "")) if info[2] != "--" else None
         )
-        fighter_item["FIGHTING_STANCE"] = info[3] if info[3] else None
+        fighter_item["STANCE"] = info[3] if info[3] else None
         fighter_item["DATE_OF_BIRTH"] = (
             pd.to_datetime(info[4]).strftime("%Y-%m-%d") if info[4] != "--" else None
         )
 
         yield fighter_item
 
-    def parse_bout(self, response):
-        pass
+    def parse_upcoming_bout(
+        self, response, event_id, event_name, date, location, bout_ordinal, weight_class
+    ):
+        upcoming_bout_item = UFCStatsUpcomingBoutItem()
 
-    def parse_fightodds_main_page(self, response, date):
-        pass
+        upcoming_bout_item["BOUT_ID"] = response.url.split("/")[-1]
+        upcoming_bout_item["EVENT_ID"] = event_id
+        upcoming_bout_item["EVENT_NAME"] = event_name
+        upcoming_bout_item["DATE"] = pd.to_datetime(date).strftime("%Y-%m-%d")
+        upcoming_bout_item["LOCATION"] = location
+        upcoming_bout_item["BOUT_ORDINAL"] = bout_ordinal
+        upcoming_bout_item["WEIGHT_CLASS"] = weight_class
+
+        if weight_class.startswith("Women's"):
+            upcoming_bout_item["BOUT_GENDER"] = "F"
+        elif weight_class == "Catch Weight":
+            upcoming_bout_item["BOUT_GENDER"] = None
+        else:
+            upcoming_bout_item["BOUT_GENDER"] = "M"
+
+        upcoming_bout_item["BOUT_LONGNAME"] = [
+            x.strip()
+            for x in response.css("i.b-fight-details__fight-title::text").getall()
+            if x.strip()
+        ][0]
+        fighter_urls = response.css(
+            "a.b-link.b-fight-details__person-link::attr(href)"
+        ).getall()
+        upcoming_bout_item["RED_FIGHTER_ID"] = fighter_urls[0].split("/")[-1]
+        upcoming_bout_item["BLUE_FIGHTER_ID"] = fighter_urls[1].split("/")[-1]
+
+        yield upcoming_bout_item
+
+
+class FightOddsIOUpcomingEventSpider(Spider):
+    """
+    Spider for scraping upcoming UFC event data from FightOdds.io
+    """
+
+    name = "fightoddsio_upcoming_spider"
+    allowed_domains = ["fightodds.io"]
+    custom_settings = {
+        "ROBOTSTXT_OBEY": False,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 8,
+        "CONCURRENT_REQUESTS": 8,
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
+            "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DEPTH_PRIORITY": 1,
+        "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
+        "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
+        "RETRY_TIMES": 1,
+        "LOG_LEVEL": "INFO",
+        "LOG_FORMATTER": "ufc_scrapy.logformatter.PoliteLogFormatter",
+        "ITEM_PIPELINES": {
+            "ufc_scrapy.pipelines.FightOddsIOFightersPipeline": 100,
+            "ufc_scrapy.pipelines.FightOddsIOUpcomingBoutsPipeline": 200,
+        },
+        "CLOSESPIDER_ERRORCOUNT": 1,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.gql_url = "https://api.fightinsider.io/gql"
+        self.headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/json",
+        }
+        self.date_today = datetime.now(timezone.utc).date()
+
+    def start_requests(self):
+        payload = json.dumps(
+            {
+                "query": EVENTS_UPCOMING_GQL_QUERY,
+                "variables": {
+                    "promotionSlug": "ufc",
+                    "dateGte": self.date_today.strftime("%Y-%m-%d"),
+                    "after": "",
+                    "first": 10,
+                    "orderBy": "date",
+                },
+            }
+        )
+
+        yield Request(
+            url=self.gql_url,
+            method="POST",
+            headers=self.headers,
+            body=payload,
+            callback=self.parse_upcoming_event,
+            dont_filter=True,
+        )
+
+    def parse_upcoming_event(self, response):
+        json_resp = json.loads(response.body)
+        upcoming_event_edge = json_resp["data"]["promotion"]["events"]["edges"][0]
+
+        event_name = upcoming_event_edge["node"]["name"]
+        event_pk = upcoming_event_edge["node"]["pk"]
+        event_date = upcoming_event_edge["node"]["date"]
+
+        next_saturday = (
+            self.date_today + timedelta((5 - self.date_today.weekday()) % 7)
+        ).strftime("%Y-%m-%d")
+
+        if event_date == next_saturday and (
+            "UFC" in event_name or "The Ultimate Fighter" in event_name
+        ):
+            payload_event_odds = json.dumps(
+                {"query": EVENT_ODDS_GQL_QUERY, "variables": {"eventPk": event_pk}}
+            )
+
+            yield Request(
+                url=self.gql_url,
+                method="POST",
+                headers=self.headers,
+                body=payload_event_odds,
+                callback=self.parse_upcoming_bout_odds,
+                dont_filter=True,
+                cb_kwargs={"info_dict": upcoming_event_edge},
+            )
+
+    def parse_upcoming_bout_odds(self, response, info_dict):
+        json_resp = json.loads(response.body)
+        fightoffer_edges = json_resp["data"]["eventOfferTable"]["fightOffers"]["edges"]
+        confirmed = [
+            edge for edge in fightoffer_edges if not edge["node"]["isCancelled"]
+        ]
+
+        for bout in confirmed:
+            upcoming_bout_item = FightOddsIOUpcomingBoutItem()
+
+            upcoming_bout_item["BOUT_SLUG"] = bout["node"]["slug"]
+            upcoming_bout_item["EVENT_SLUG"] = info_dict["node"]["slug"]
+            upcoming_bout_item["EVENT_NAME"] = info_dict["node"]["name"].strip()
+            upcoming_bout_item["DATE"] = info_dict["node"]["date"]
+            upcoming_bout_item["LOCATION"] = info_dict["node"]["city"].strip()
+            upcoming_bout_item["VENUE"] = info_dict["node"]["venue"].strip()
+
+            f1_slug = bout["node"]["fighter1"]["slug"]
+            f2_slug = bout["node"]["fighter2"]["slug"]
+            upcoming_bout_item["FIGHTER_1_SLUG"] = f1_slug
+            upcoming_bout_item["FIGHTER_2_SLUG"] = f2_slug
+
+            f1_odds_draftkings = f2_odds_draftkings = None
+            for offer in bout["node"]["straightOffers"]["edges"]:
+                if offer["node"]["sportsbook"]["slug"] == "draftkings":
+                    f1_odds_draftkings = offer["node"]["outcome1"]["odds"]
+                    f2_odds_draftkings = offer["node"]["outcome2"]["odds"]
+                    break
+            assert f1_odds_draftkings is not None and f2_odds_draftkings is not None
+
+            upcoming_bout_item["FIGHTER_1_ODDS_DRAFTKINGS"] = f1_odds_draftkings
+            upcoming_bout_item["FIGHTER_2_ODDS_DRAFTKINGS"] = f2_odds_draftkings
+
+            yield upcoming_bout_item
+
+            fighter_slugs = [f1_slug, f2_slug]
+            for fighter_slug in fighter_slugs:
+                payload_fighter = json.dumps(
+                    {
+                        "query": FIGHTERS_GQL_QUERY,
+                        "variables": {"fighterSlug": fighter_slug},
+                    }
+                )
+
+                yield Request(
+                    url=self.gql_url,
+                    method="POST",
+                    headers=self.headers,
+                    body=payload_fighter,
+                    callback=self.parse_fighter,
+                    dont_filter=True,
+                    cb_kwargs={"fighter_slug": fighter_slug},
+                )
+
+    def parse_fighter(self, response, fighter_slug):
+        json_resp = json.loads(response.body)
+        fighter_data = json_resp["data"]["fighter"]
+
+        fighter_item = FightOddsIOFighterItem()
+
+        fighter_item["FIGHTER_SLUG"] = fighter_slug
+        fighter_item[
+            "FIGHTER_NAME"
+        ] = f"{fighter_data['firstName']} {fighter_data['lastName']}".strip()
+        fighter_item["FIGHTER_NICKNAME"] = (
+            fighter_data["nickName"] if fighter_data["nickName"] else None
+        )
+        fighter_item["HEIGHT_CENTIMETERS"] = (
+            float(fighter_data["height"])
+            if fighter_data["height"] and fighter_data["height"] != "0.0"
+            else None
+        )
+        fighter_item["REACH_INCHES"] = (
+            float(fighter_data["reach"])
+            if fighter_data["reach"] and fighter_data["reach"] != "0.0"
+            else None
+        )
+        fighter_item["LEG_REACH_INCHES"] = (
+            float(fighter_data["legReach"])
+            if fighter_data["legReach"] and fighter_data["legReach"] != "0.0"
+            else None
+        )
+        fighter_item["FIGHTING_STYLE"] = (
+            fighter_data["fightingStyle"] if fighter_data["fightingStyle"] else None
+        )
+        fighter_item["STANCE"] = (
+            fighter_data["stance"] if fighter_data["stance"] else None
+        )
+        fighter_item["NATIONALITY"] = (
+            fighter_data["nationality"].strip() if fighter_data["nationality"] else None
+        )
+        # 1970-01-01 used as placeholder for missing DOB
+        fighter_item["DATE_OF_BIRTH"] = (
+            fighter_data["birthDate"]
+            if fighter_data["birthDate"] and fighter_data["birthDate"] != "1970-01-01"
+            else None
+        )
+
+        yield fighter_item

@@ -2,7 +2,7 @@
 import sys
 
 # local imports
-from src.pipelines import ResultsPipeline
+from src.pipelines import ResultsPipeline, UpcomingEventPipeline
 
 # third party imports
 
@@ -16,6 +16,8 @@ if __name__ == "__main__":
         pipeline = ResultsPipeline(scrape_type="all")
     elif pipeline_id == "results_most_recent":
         pipeline = ResultsPipeline(scrape_type="most_recent")
+    elif pipeline_id == "upcoming_event":
+        pipeline = UpcomingEventPipeline()
     else:
         raise ValueError(f"Invalid pipeline ID: {pipeline_id}")
 
