@@ -44,6 +44,13 @@ class ResultsPipeline:
 
         pass
 
+    def update_fighter_elo_scores(self):
+        """
+        Update fighter ELOs
+        """
+
+        pass
+
     def update_pnl(self):
         """
         Update PnL on bets
