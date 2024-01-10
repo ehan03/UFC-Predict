@@ -276,6 +276,19 @@ class UFCStatsUpcomingBoutsPipeline:
             "DELETE FROM UFCSTATS_UPCOMING WHERE EVENT_ID = ?;", (event_id,)
         )
 
+        unknown_gender: pd.DataFrame = upcoming_bouts_df.loc[
+            upcoming_bouts_df["BOUT_GENDER"].isna(),
+            ["BOUT_ID", "RED_FIGHTER_ID", "BLUE_FIGHTER_ID"],
+        ]
+        for row in unknown_gender.itertuples():
+            gender = self.cur.execute(
+                "SELECT DISTINCT BOUT_GENDER FROM UFCSTATS_BOUTS_OVERALL WHERE RED_FIGHTER_ID IN (?, ?) OR BLUE_FIGHTER_ID IN (?, ?);",
+                (row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID),
+            ).fetchone()[0]
+            upcoming_bouts_df.loc[
+                upcoming_bouts_df["BOUT_ID"] == row.BOUT_ID, "BOUT_GENDER"
+            ] = gender
+
         upcoming_bouts_df.to_sql(
             "UFCSTATS_UPCOMING",
             self.conn,
