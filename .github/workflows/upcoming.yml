@@ -19,7 +19,7 @@ jobs:
                 pip install pandas scrapy scrapy-user-agents thefuzz
             
             - name: Run upcoming event pipeline
-              run: python pipeline_run.py upcoming
+              run: python pipeline_run.py upcoming_event
             
             - name: Commit files and push changes
               run: |
