@@ -8,6 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scrapers"))
 from scrapy.crawler import CrawlerProcess
 
 # local imports
+from src.fighter_matching import FighterMatcher
 from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import (
     FightOddsIOUpcomingEventSpider,
     UFCStatsUpcomingEventSpider,
@@ -34,7 +35,8 @@ class UpcomingEventPipeline:
         Update linkage between UFCStats and FightOdds.io
         """
 
-        pass
+        fighter_matcher = FighterMatcher(matching_type="upcoming")
+        fighter_matcher()
 
     def get_predictions(self):
         pass
@@ -48,3 +50,4 @@ class UpcomingEventPipeline:
         """
 
         self.get_upcoming_event()
+        self.update_ufcstats_fightoddsio_linkage()
