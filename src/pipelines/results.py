@@ -8,6 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scrapers"))
 from scrapy.crawler import CrawlerProcess
 
 # local imports
+from src.fighter_matching import FighterMatcher
 from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import (
     FightOddsIOResultsSpider,
     UFCStatsResultsSpider,
@@ -42,7 +43,12 @@ class ResultsPipeline:
         Update linkage between UFCStats and FightOdds.io
         """
 
-        pass
+        if self.scrape_type == "all":
+            fighter_matcher = FighterMatcher(matching_type="reset_all")
+        else:
+            fighter_matcher = FighterMatcher(matching_type="completed")
+
+        fighter_matcher()
 
     def update_fighter_elo_scores(self):
         """
@@ -64,3 +70,4 @@ class ResultsPipeline:
         """
 
         self.get_results()
+        self.update_ufcstats_fightoddsio_linkage()
