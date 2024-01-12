@@ -1,5 +1,6 @@
 # standard library imports
 import itertools
+from typing import Tuple
 
 # third party imports
 import cvxpy as cp
@@ -11,7 +12,6 @@ import numpy as np
 class SimultaneousKelly:
     """
     Simultaneous Kelly bet sizing strategy for multiple bouts
-    including a risk free asset
     """
 
     def __init__(
@@ -21,11 +21,12 @@ class SimultaneousKelly:
         red_odds: np.ndarray,
         blue_odds: np.ndarray,
         current_bankroll: float,
-        fraction: float = 0.15,
+        fraction: float = 0.10,
         min_bet: float = 0.10,
+        max_payout: float = 100000.00,
     ):
         """
-        Initialize the SimultaneousKelly object
+        Initialize the SimultaneousKelly class
         """
 
         self.red_probs = red_probs
@@ -33,35 +34,36 @@ class SimultaneousKelly:
         self.red_odds = red_odds
         self.blue_odds = blue_odds
         self.current_bankroll = current_bankroll
-        self.fraction = fraction
-        self.min_bet = min_bet
+        self.fraction = fraction  # Default is 1/10
+        self.min_bet = min_bet  # DraftKings requires a minimum $0.10 bet
+        self.max_payout = max_payout
 
-        self.n = red_probs.shape[0]
+        self.n = len(red_probs)
         self.variations = np.array(list(itertools.product([1, 0], repeat=self.n)))
 
-    def convert_american_to_decimal(self, odds: np.ndarray) -> np.ndarray:
+    def convert_american_to_proportion_gain(self, odds: np.ndarray) -> np.ndarray:
         """
-        Convert American odds to decimal odds
+        Convert American odds to proportion of bet gained (i.e. decimal odds - 1),
+        equivalent to fractional odds
         """
 
-        return np.where(odds > 0, odds / 100 + 1, -100 / odds + 1)
+        return np.where(odds > 0, odds / 100, -100 / odds)
 
     def create_returns_matrix(self) -> np.ndarray:
         """
         Create returns matrix R
         """
 
-        red_odds_decimal = self.convert_american_to_decimal(self.red_odds)
-        blue_odds_decimal = self.convert_american_to_decimal(self.blue_odds)
+        red_props = self.convert_american_to_proportion_gain(self.red_odds)
+        blue_props = self.convert_american_to_proportion_gain(self.blue_odds)
 
-        returns_matrix = np.zeros(shape=(self.variations.shape[0], 2 * self.n + 1))
-        returns_matrix[:, -1] = 1
+        returns_matrix = np.zeros(shape=(self.variations.shape[0], 2 * self.n))
         for j in range(self.n):
             returns_matrix[:, 2 * j] = np.where(
-                self.variations[:, j] == 1, red_odds_decimal[j], 0
+                self.variations[:, j] == 1, red_props[j], -1
             )
             returns_matrix[:, 2 * j + 1] = np.where(
-                self.variations[:, j] == 0, blue_odds_decimal[j], 0
+                self.variations[:, j] == 0, blue_props[j], -1
             )
 
         return returns_matrix
@@ -89,7 +91,7 @@ class SimultaneousKelly:
 
         R = self.create_returns_matrix()
         p = self.create_probabilities_vector()
-        b = cp.Variable(2 * self.n + 1)
+        b = cp.Variable(2 * self.n)
 
         objective = cp.Maximize(p @ cp.log(R @ b))
         constraints = [
@@ -97,17 +99,32 @@ class SimultaneousKelly:
             cp.sum(b) <= self.fraction,
         ]
         problem = cp.Problem(objective, constraints)
-        problem.solve()
+        problem.solve(solver=cp.CLARABEL)
 
         return b.value
 
-    def __call__(self) -> np.ndarray:
+    def __call__(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Calculate optimal wager amounts in dollars
         """
 
         fractions = self.calculate_optimal_wagers()
-        wagers = fractions[:-1] * self.current_bankroll
-        wagers_rounded = np.round(wagers, 2)
+        wagers = fractions * self.current_bankroll
 
-        return np.where(wagers_rounded < self.min_bet, 0, wagers_rounded)
+        red_props = self.convert_american_to_proportion_gain(self.red_odds)
+        blue_props = self.convert_american_to_proportion_gain(self.blue_odds)
+        props = np.ravel([red_props, blue_props], "F")
+
+        # Ensure we stay within DraftKing's payout limits for MMA
+        while True:
+            potential_payout = np.multiply(wagers, props)
+            if np.max(potential_payout) <= self.max_payout:
+                break
+            wagers /= 2.0
+
+        wagers_rounded = np.round(wagers, 2)
+        wagers_clipped = np.where(wagers_rounded < self.min_bet, 0, wagers_rounded)
+
+        red_wagers, blue_wagers = wagers_clipped[::2], wagers_clipped[1::2]
+
+        return red_wagers, blue_wagers
