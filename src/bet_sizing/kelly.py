@@ -12,6 +12,7 @@ import numpy as np
 class SimultaneousKelly:
     """
     Simultaneous Kelly bet sizing strategy for multiple bouts
+    including a risk free asset
     """
 
     def __init__(
@@ -21,12 +22,12 @@ class SimultaneousKelly:
         red_odds: np.ndarray,
         blue_odds: np.ndarray,
         current_bankroll: float,
-        fraction: float = 0.10,
+        fraction: float = 0.1,
         min_bet: float = 0.10,
-        max_payout: float = 100000.00,
+        max_payout: float = 100000,
     ):
         """
-        Initialize the SimultaneousKelly class
+        Initialize the SimultaneousKelly object
         """
 
         self.red_probs = red_probs
@@ -41,10 +42,16 @@ class SimultaneousKelly:
         self.n = len(red_probs)
         self.variations = np.array(list(itertools.product([1, 0], repeat=self.n)))
 
+    def convert_american_to_decimal(self, odds: np.ndarray) -> np.ndarray:
+        """
+        Convert American odds to decimal odds
+        """
+
+        return np.where(odds > 0, odds / 100 + 1, -100 / odds + 1)
+
     def convert_american_to_proportion_gain(self, odds: np.ndarray) -> np.ndarray:
         """
-        Convert American odds to proportion of bet gained (i.e. decimal odds - 1),
-        equivalent to fractional odds
+        Convert American odds to proportion of bet gained (i.e. decimal odds - 1)
         """
 
         return np.where(odds > 0, odds / 100, -100 / odds)
@@ -54,16 +61,17 @@ class SimultaneousKelly:
         Create returns matrix R
         """
 
-        red_props = self.convert_american_to_proportion_gain(self.red_odds)
-        blue_props = self.convert_american_to_proportion_gain(self.blue_odds)
+        red_odds_decimal = self.convert_american_to_decimal(self.red_odds)
+        blue_odds_decimal = self.convert_american_to_decimal(self.blue_odds)
 
-        returns_matrix = np.zeros(shape=(self.variations.shape[0], 2 * self.n))
+        returns_matrix = np.zeros(shape=(self.variations.shape[0], 2 * self.n + 1))
+        returns_matrix[:, -1] = 1
         for j in range(self.n):
             returns_matrix[:, 2 * j] = np.where(
-                self.variations[:, j] == 1, red_props[j], -1
+                self.variations[:, j] == 1, red_odds_decimal[j], 0
             )
             returns_matrix[:, 2 * j + 1] = np.where(
-                self.variations[:, j] == 0, blue_props[j], -1
+                self.variations[:, j] == 0, blue_odds_decimal[j], 0
             )
 
         return returns_matrix
@@ -91,12 +99,12 @@ class SimultaneousKelly:
 
         R = self.create_returns_matrix()
         p = self.create_probabilities_vector()
-        b = cp.Variable(2 * self.n)
+        b = cp.Variable(2 * self.n + 1)
 
         objective = cp.Maximize(p @ cp.log(R @ b))
         constraints = [
             b >= 0,
-            cp.sum(b) <= self.fraction,
+            cp.sum(b) == 1,
         ]
         problem = cp.Problem(objective, constraints)
         problem.solve(solver=cp.CLARABEL)
@@ -109,7 +117,7 @@ class SimultaneousKelly:
         """
 
         fractions = self.calculate_optimal_wagers()
-        wagers = fractions * self.current_bankroll
+        wagers = self.fraction * self.current_bankroll * fractions[:-1]
 
         red_props = self.convert_american_to_proportion_gain(self.red_odds)
         blue_props = self.convert_american_to_proportion_gain(self.blue_odds)
