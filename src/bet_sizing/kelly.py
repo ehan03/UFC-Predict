@@ -21,9 +21,9 @@ class SimultaneousKelly:
         red_odds: np.ndarray,
         blue_odds: np.ndarray,
         current_bankroll: float,
-        fraction: float = 0.1,
+        fraction: float = 0.10,
         min_bet: float = 0.10,
-        max_payout: float = 100000,
+        max_payout: float = 100000.00,
     ):
         """
         Initialize the SimultaneousKelly class
@@ -34,8 +34,8 @@ class SimultaneousKelly:
         self.red_odds = red_odds
         self.blue_odds = blue_odds
         self.current_bankroll = current_bankroll
-        self.fraction = fraction
-        self.min_bet = min_bet
+        self.fraction = fraction  # Default is 1/10
+        self.min_bet = min_bet  # DraftKings requires a minimum $0.10 bet
         self.max_payout = max_payout
 
         self.n = len(red_probs)
@@ -43,7 +43,8 @@ class SimultaneousKelly:
 
     def convert_american_to_proportion_gain(self, odds: np.ndarray) -> np.ndarray:
         """
-        Convert American odds to proportion of bet gained (i.e. decimal odds - 1)
+        Convert American odds to proportion of bet gained (i.e. decimal odds - 1),
+        equivalent to fractional odds
         """
 
         return np.where(odds > 0, odds / 100, -100 / odds)
