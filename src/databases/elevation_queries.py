@@ -1,0 +1,43 @@
+# standard library imports
+
+# third party imports
+
+# local imports
+
+COMPLETED_EVENT_LOCATIONS_QUERY = """
+WITH completed_event_locations AS (
+  SELECT
+    DISTINCT LOCATION
+  FROM
+    UFCSTATS_BOUTS_OVERALL
+)
+SELECT
+  t1.LOCATION
+FROM
+  completed_event_locations AS t1
+LEFT JOIN
+  LOCATION_ELEVATIONS AS t2
+ON
+  t1.LOCATION = t2.LOCATION
+WHERE
+  t2.ELEVATION_METERS IS NULL;
+"""
+
+UPCOMING_EVENT_LOCATIONS_QUERY = """
+WITH upcoming_event_locations AS (
+  SELECT
+    DISTINCT LOCATION
+  FROM
+    UFCSTATS_UPCOMING
+)
+SELECT
+  t1.LOCATION
+FROM
+  upcoming_event_locations AS t1
+LEFT JOIN
+  LOCATION_ELEVATIONS AS t2
+ON
+  t1.LOCATION = t2.LOCATION
+WHERE
+  t2.ELEVATION_METERS IS NULL;
+"""
