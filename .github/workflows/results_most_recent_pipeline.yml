@@ -16,7 +16,7 @@ jobs:
             - name: Install dependencies
               run: |
                 python -m pip install --upgrade pip
-                pip install pandas scrapy scrapy-user-agents thefuzz
+                pip install pandas scrapy scrapy-user-agents thefuzz geopy
            
             - name: Run results pipeline for most recent results
               run: python pipeline_run.py results_most_recent
