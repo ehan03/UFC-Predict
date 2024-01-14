@@ -1,6 +1,6 @@
 # UFC-Predict
 
-"_Applying machine learning and optimization techniques to the UFC_"
+_Applying machine learning and optimization techniques to the UFC_
 
 <br>
 
