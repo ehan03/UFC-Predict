@@ -19,7 +19,7 @@ WITH cte1 AS (
 cte2 AS (
   SELECT 
     MIN(FIGHTER_SLUG) AS FIGHTER_SLUG, 
-    fighter_name 
+    FIGHTER_NAME
   FROM 
     FIGHTODDSIO_FIGHTERS 
   GROUP BY 

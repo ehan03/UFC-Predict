@@ -31,7 +31,7 @@ class ElevationFinder:
         assert location_type in ["completed", "upcoming"]
         self.location_type = location_type
         self.conn = sqlite3.connect(
-            os.path.join(os.path.dirname(__file__), "..", "..", "data", "ufc.db"),
+            os.path.join("..", "data", "ufc.db"),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         self.cur = self.conn.cursor()
@@ -42,7 +42,7 @@ class ElevationFinder:
         Get latitude, longitude from location string
         """
 
-        geolocator = Nominatim(user_agent="ufc-predict")
+        geolocator = Nominatim(user_agent="ufcpredict", timeout=30)  # type: ignore
         location_info = geolocator.geocode(location)
 
         return location_info.latitude, location_info.longitude  # type: ignore
@@ -62,7 +62,7 @@ class ElevationFinder:
         response = requests.post(
             "https://api.open-elevation.com/api/v1/lookup",
             headers=headers,
-            data=json.dumps(data),
+            data=data,
         ).json()
 
         return response["results"]
@@ -81,18 +81,23 @@ class ElevationFinder:
 
         lat_long_list = []
         for name in location_names:
-            pair = self.get_lat_long(name)
+            pair = self.get_lat_long(name[0])
             lat_long_list.append(pair)
-            time.sleep(2)
+            time.sleep(1.1)
 
         if lat_long_list:
-            elevations = self.get_elevations(lat_long_list)
+            elevations = []
+            lat_long_list_chunked = [
+                lat_long_list[i : i + 50] for i in range(0, len(lat_long_list), 50)
+            ]
+            for chunk in lat_long_list_chunked:
+                elevations.extend(self.get_elevations(chunk))
 
             dict_df = []
             for name, elevation_dict in zip(location_names, elevations):
                 dict_df.append(
                     {
-                        "LOCATION": name,
+                        "LOCATION": name[0],
                         "LATITUDE": elevation_dict["latitude"],
                         "LONGITUDE": elevation_dict["longitude"],
                         "ELEVATION_METERS": elevation_dict["elevation"],
