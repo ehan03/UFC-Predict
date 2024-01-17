@@ -31,7 +31,7 @@ class ElevationFinder:
         assert location_type in ["completed", "upcoming"]
         self.location_type = location_type
         self.conn = sqlite3.connect(
-            os.path.join("..", "data", "ufc.db"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "data", "ufc.db"),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         self.cur = self.conn.cursor()
