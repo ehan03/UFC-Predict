@@ -5,7 +5,7 @@ import sqlite3
 import streamlit as st
 
 # local imports
-from utils import add_socials
+from utils import add_socials, set_sidebar_fixed_width
 
 st.set_page_config(page_title="UFC-Predict", page_icon="🥊")
 
@@ -19,3 +19,5 @@ st.info("Last updated: TBA")
 st.divider()
 st.markdown("""### Socials""")
 add_socials()
+
+set_sidebar_fixed_width()
