@@ -4,7 +4,6 @@
 import streamlit as st
 
 # local imports
-from ..utils import set_sidebar_fixed_width
 
 st.set_page_config(page_title="Methodology", page_icon="🤓")
 
@@ -12,4 +11,14 @@ st.markdown("""# 🤓 Methodology""")
 st.markdown("""_A whole lot of yapping_""")
 st.divider()
 
-set_sidebar_fixed_width()
+# Set fixed width sidebar
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"][aria-expanded="true"]{
+        min-width: 244px;
+        max-width: 244px;
+    }
+    """,
+    unsafe_allow_html=True,
+)
