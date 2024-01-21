@@ -24,16 +24,3 @@ def add_socials():
 
     social_button("https://github.com/ehan03", "ehan03", "fa-github")
     social_button("http://linkedin.com/in/e-han", "e-han", "fa-linkedin")
-
-
-def set_sidebar_fixed_width():
-    st.markdown(
-        """
-        <style>
-        [data-testid="stSidebar"][aria-expanded="true"]{
-            min-width: 244px;
-            max-width: 244px;
-        }
-        """,
-        unsafe_allow_html=True,
-    )
