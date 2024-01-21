@@ -12,15 +12,3 @@ st.markdown("""# 📊 Results""")
 st.markdown("""_Past predictions and bets + profit/loss stats_""")
 st.divider()
 st.info("Last updated: TBA")
-
-# Set fixed width sidebar
-st.markdown(
-    """
-    <style>
-    [data-testid="stSidebar"][aria-expanded="true"]{
-        min-width: 244px;
-        max-width: 244px;
-    }
-    """,
-    unsafe_allow_html=True,
-)

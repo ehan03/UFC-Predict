@@ -19,15 +19,3 @@ st.info("Last updated: TBA")
 st.divider()
 st.markdown("""### Socials""")
 add_socials()
-
-# Set fixed width sidebar
-st.markdown(
-    """
-    <style>
-    [data-testid="stSidebar"][aria-expanded="true"]{
-        min-width: 244px;
-        max-width: 244px;
-    }
-    """,
-    unsafe_allow_html=True,
-)
