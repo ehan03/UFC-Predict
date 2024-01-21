@@ -5,7 +5,7 @@ import sqlite3
 import streamlit as st
 
 # local imports
-from .utils import add_socials
+from utils import add_socials
 
 st.set_page_config(page_title="UFC-Predict", page_icon="🥊")
 
