@@ -23,6 +23,7 @@ from src.databases.create_statements import (
 )
 from src.scrapers.ufc_scrapy.items import (
     FightOddsIOBoutItem,
+    FightOddsIOClosingOddsItem,
     FightOddsIOFighterItem,
     FightOddsIOUpcomingBoutItem,
     UFCStatsBoutOverallItem,
@@ -390,6 +391,7 @@ class FightOddsIOCompletedBoutsPipeline:
         self.scrape_type = None
 
         self.bouts = []
+        self.bout_odds = []
         self.conn = sqlite3.connect(
             os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "ufc.db"),
             detect_types=sqlite3.PARSE_DECLTYPES,
@@ -412,6 +414,8 @@ class FightOddsIOCompletedBoutsPipeline:
 
         if isinstance(item, FightOddsIOBoutItem):
             self.bouts.append(dict(item))
+        elif isinstance(item, FightOddsIOClosingOddsItem):
+            self.bout_odds.append(dict(item))
 
         return item
 
@@ -423,6 +427,10 @@ class FightOddsIOCompletedBoutsPipeline:
         bouts_df = pd.DataFrame(self.bouts).sort_values(
             by=["DATE", "EVENT_SLUG", "BOUT_ORDINAL"]
         )
+        odds_df = pd.DataFrame(self.bout_odds)
+
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM FIGHTODDSIO_BOUTS")
 
         flag = True
         if self.scrape_type == "most_recent":
@@ -434,7 +442,9 @@ class FightOddsIOCompletedBoutsPipeline:
             flag = len(res) == 0
 
         if flag:
-            bouts_df.to_sql(
+            bouts_with_odds_df = bouts_df.merge(odds_df, how="left", on="BOUT_SLUG")
+
+            bouts_with_odds_df.to_sql(
                 "FIGHTODDSIO_BOUTS",
                 self.conn,
                 if_exists="append",

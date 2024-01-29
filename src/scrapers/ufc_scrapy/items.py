@@ -148,6 +148,14 @@ class FightOddsIOBoutItem(Item):
     OUTCOME_METHOD_2 = Field()
     END_ROUND = Field()
     END_ROUND_TIME_SECONDS = Field()
+
+
+class FightOddsIOClosingOddsItem(Item):
+    """
+    Item class for historical average closing odds data from FightOdds.io
+    """
+
+    BOUT_SLUG = Field()
     FIGHTER_1_ODDS = Field()
     FIGHTER_2_ODDS = Field()
 

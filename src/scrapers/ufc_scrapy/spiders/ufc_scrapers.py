@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 # third party imports
+import numpy as np
 import pandas as pd
 import w3lib.html
 from scrapy.http import Request
@@ -15,6 +16,7 @@ from scrapy.spiders import Spider
 # local imports
 from src.scrapers.ufc_scrapy.items import (
     FightOddsIOBoutItem,
+    FightOddsIOClosingOddsItem,
     FightOddsIOFighterItem,
     FightOddsIOUpcomingBoutItem,
     UFCStatsBoutOverallItem,
@@ -435,6 +437,17 @@ class FightOddsIOResultsSpider(Spider):
         }
         self.date_today = datetime.now(timezone.utc).date()
 
+        # Bookmakers to target (don't do live odds as closing odds)
+        self.bookie_slugs_target = {
+            "betonline",
+            "bovada",
+            "betus",
+            "sx-bet",
+            "jazz-sports",
+            "unibet",
+            "betanysports",
+        }
+
         # Weird cases as a result of the website and its DB having awful design
         self.edge_case_bout_slugs = {
             "gegard-mousasi-vs-mark-munoz-9476",
@@ -528,7 +541,7 @@ class FightOddsIOResultsSpider(Spider):
                 body=payload_fights,
                 callback=self.parse_event_fights,
                 dont_filter=True,
-                cb_kwargs={"info_dict": edge},
+                cb_kwargs={"info_dict": edge, "pk": pk},
             )
 
         has_next_page = events["pageInfo"]["hasNextPage"]
@@ -556,7 +569,7 @@ class FightOddsIOResultsSpider(Spider):
                 dont_filter=True,
             )
 
-    def parse_event_fights(self, response, info_dict):
+    def parse_event_fights(self, response, info_dict, pk):
         json_resp = json.loads(response.body)
         edges = json_resp["data"]["event"]["fights"]["edges"]
         confirmed = [
@@ -566,6 +579,7 @@ class FightOddsIOResultsSpider(Spider):
             or edge["node"]["slug"] in self.falsely_cancelled
         ]
 
+        valid_bout_slugs = []
         for bout in confirmed:
             if (
                 bout["node"]["slug"] in self.duplicates
@@ -575,7 +589,8 @@ class FightOddsIOResultsSpider(Spider):
 
             bout_item = FightOddsIOBoutItem()
 
-            bout_item["BOUT_SLUG"] = bout["node"]["slug"]
+            bout_slug = bout["node"]["slug"]
+            bout_item["BOUT_SLUG"] = bout_slug
             bout_item["EVENT_SLUG"] = info_dict["node"]["slug"]
             bout_item["EVENT_NAME"] = info_dict["node"]["name"].strip()
             bout_item["DATE"] = info_dict["node"]["date"]
@@ -639,8 +654,6 @@ class FightOddsIOResultsSpider(Spider):
                 end_round_time_seconds = None
 
             bout_item["END_ROUND_TIME_SECONDS"] = end_round_time_seconds
-            bout_item["FIGHTER_1_ODDS"] = bout["node"]["fighter1Odds"]
-            bout_item["FIGHTER_2_ODDS"] = bout["node"]["fighter2Odds"]
 
             # Filter out cancelled events not marked cancelled
             if (
@@ -648,6 +661,8 @@ class FightOddsIOResultsSpider(Spider):
                 or bout_item["END_ROUND_TIME_SECONDS"] is not None
             ):
                 yield bout_item
+
+                valid_bout_slugs.append(bout_slug)
 
                 fighter_slugs = [f1_slug, f2_slug]
                 for fighter_slug in fighter_slugs:
@@ -667,6 +682,20 @@ class FightOddsIOResultsSpider(Spider):
                         dont_filter=True,
                         cb_kwargs={"fighter_slug": fighter_slug},
                     )
+
+        payload_odds = json.dumps(
+            {"query": EVENT_ODDS_GQL_QUERY, "variables": {"eventPk": pk}}
+        )
+
+        yield Request(
+            url=self.gql_url,
+            method="POST",
+            headers=self.headers,
+            body=payload_odds,
+            callback=self.parse_bout_odds,
+            dont_filter=True,
+            cb_kwargs={"valid_bout_slugs": valid_bout_slugs},
+        )
 
     def parse_fighter(self, response, fighter_slug):
         json_resp = json.loads(response.body)
@@ -713,6 +742,61 @@ class FightOddsIOResultsSpider(Spider):
         )
 
         yield fighter_item
+
+    def parse_bout_odds(self, response, valid_bout_slugs):
+        json_resp = json.loads(response.body)
+
+        if json_resp["data"]["eventOfferTable"]:
+            fightoffer_edges = json_resp["data"]["eventOfferTable"]["fightOffers"][
+                "edges"
+            ]
+            valid = [
+                edge
+                for edge in fightoffer_edges
+                if edge["node"]["slug"] in valid_bout_slugs
+            ]
+
+            for bout in valid:
+                bout_slug = bout["node"]["slug"]
+
+                closing_odds_item = FightOddsIOClosingOddsItem()
+                closing_odds_item["BOUT_SLUG"] = bout_slug
+                f1_odds = []
+                f2_odds = []
+
+                seen = set()
+                for offer in bout["node"]["straightOffers"]["edges"]:
+                    if offer["node"]["sportsbook"]["slug"] in self.bookie_slugs_target:
+                        if offer["node"]["sportsbook"]["slug"] in seen:
+                            # just take first one, there are some weird duplicate edge cases
+                            continue
+                        seen.add(offer["node"]["sportsbook"]["slug"])
+
+                        if offer["node"]["outcome1"]:
+                            if offer["node"]["outcome1"]["odds"]:
+                                f1_odds.append(offer["node"]["outcome1"]["odds"])
+
+                        if offer["node"]["outcome2"]:
+                            if offer["node"]["outcome2"]["odds"]:
+                                f2_odds.append(offer["node"]["outcome2"]["odds"])
+
+                if f1_odds or f2_odds:
+                    closing_odds_item["FIGHTER_1_ODDS"] = self.get_average_decimal_odds(
+                        np.array(f1_odds)
+                    )
+                    closing_odds_item["FIGHTER_2_ODDS"] = self.get_average_decimal_odds(
+                        np.array(f2_odds)
+                    )
+
+                    yield closing_odds_item
+
+    def get_average_decimal_odds(self, odds):
+        if not odds.size:
+            return None
+
+        decimal_odds = np.where(odds > 0, odds / 100 + 1, -100 / odds + 1)
+
+        return np.round(np.mean(decimal_odds), 6)
 
 
 class UFCStatsUpcomingEventSpider(Spider):
