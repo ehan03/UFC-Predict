@@ -51,7 +51,7 @@ class FighterMatcher:
 
         match_upcoming_df = pd.read_sql(
             MATCHING_QUERY_UPCOMING_BOUTS, self.conn
-        ).drop_duplicates()
+        ).drop_duplicates(subset="UFCSTATS_FIGHTER_ID")
         match_upcoming_df.to_sql(
             "FIGHTER_LINKAGE", self.conn, if_exists="append", index=False
         )
