@@ -254,8 +254,8 @@ class UFCStatsCompletedBoutsPipeline:
             }
 
             bouts_by_round_df.update(
-                bouts_overall_df.loc[
-                    bouts_overall_df["BOUT_ID"].isin(self.bout_ids_to_flip)
+                bouts_by_round_df.loc[
+                    bouts_by_round_df["BOUT_ID"].isin(self.bout_ids_to_flip)
                 ].rename(columns=swap_map_by_round)
             )
 
