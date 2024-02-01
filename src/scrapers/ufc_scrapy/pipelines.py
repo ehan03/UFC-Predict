@@ -127,6 +127,26 @@ class UFCStatsCompletedBoutsPipeline:
         self.cur.execute(CREATE_UFCSTATS_BOUTS_OVERALL_TABLE)
         self.cur.execute(CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE)
 
+        self.bout_ids_to_flip = [
+            "ca93e3f69fa3d725",
+            "b4d624bdc27dff83",
+            "aefca2869c87eb11",
+            "0ea087a71863184d",
+            "b091e021e61f1950",
+            "5e52b0bf9719f0ae",
+            "840863604b38a33f",
+            "adddc6e46da5ca19",
+            "20628fd4e19a97e4",
+            "1a21263dc5d866b6",
+            "504b540805598fa5",
+            "be72958d9715757d",
+            "19f615a7a5cfd304",
+            "c4fa93a4f37a6ca7",
+            "c99370e3e54bd5fd",
+            "d7f9a09021a9a13c",
+            "24e14c4824144c64",
+        ]
+
     def open_spider(self, spider):
         """
         Open the spider
@@ -152,20 +172,92 @@ class UFCStatsCompletedBoutsPipeline:
         Insert the scraped data into the database and close the spider
         """
 
-        bouts_overall_df = pd.DataFrame(self.bouts_overall).sort_values(
-            by=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
+        bouts_overall_df = (
+            pd.DataFrame(self.bouts_overall)
+            .sort_values(by=["DATE", "EVENT_ID", "BOUT_ORDINAL"])
+            .reset_index(drop=True)
         )
         bout_ids = bouts_overall_df["BOUT_ID"].values.tolist()
-        bouts_by_round_df = pd.DataFrame(self.bouts_by_round).sort_values(
-            by=["BOUT_ID", "ROUND"],
-            key=lambda x: x
-            if x.name != "BOUT_ID"
-            else x.map(lambda e: bout_ids.index(e)),
+        bouts_by_round_df = (
+            pd.DataFrame(self.bouts_by_round)
+            .sort_values(
+                by=["BOUT_ID", "ROUND"],
+                key=lambda x: x
+                if x.name != "BOUT_ID"
+                else x.map(lambda e: bout_ids.index(e)),
+            )
+            .reset_index(drop=True)
         )
 
         if self.scrape_type == "all":
             self.cur.execute("DELETE FROM UFCSTATS_BOUTS_OVERALL")
             self.cur.execute("DELETE FROM UFCSTATS_BOUTS_BY_ROUND")
+
+            swap_map_overall = {
+                "RED_FIGHTER_ID": "BLUE_FIGHTER_ID",
+                "BLUE_FIGHTER_ID": "RED_FIGHTER_ID",
+                "RED_OUTCOME": "BLUE_OUTCOME",
+                "BLUE_OUTCOME": "RED_OUTCOME",
+            }
+
+            bouts_overall_df.update(
+                bouts_overall_df.loc[
+                    bouts_overall_df["BOUT_ID"].isin(self.bout_ids_to_flip)
+                ].rename(columns=swap_map_overall)
+            )
+
+            swap_map_by_round = {
+                "RED_KNOCKDOWNS": "BLUE_KNOCKDOWNS",
+                "BLUE_KNOCKDOWNS": "RED_KNOCKDOWNS",
+                "RED_TOTAL_STRIKES_LANDED": "BLUE_TOTAL_STRIKES_LANDED",
+                "BLUE_TOTAL_STRIKES_LANDED": "RED_TOTAL_STRIKES_LANDED",
+                "RED_TOTAL_STRIKES_ATTEMPTED": "BLUE_TOTAL_STRIKES_ATTEMPTED",
+                "BLUE_TOTAL_STRIKES_ATTEMPTED": "RED_TOTAL_STRIKES_ATTEMPTED",
+                "RED_TAKEDOWNS_LANDED": "BLUE_TAKEDOWNS_LANDED",
+                "BLUE_TAKEDOWNS_LANDED": "RED_TAKEDOWNS_LANDED",
+                "RED_TAKEDOWNS_ATTEMPTED": "BLUE_TAKEDOWNS_ATTEMPTED",
+                "BLUE_TAKEDOWNS_ATTEMPTED": "RED_TAKEDOWNS_ATTEMPTED",
+                "RED_SUBMISSION_ATTEMPTS": "BLUE_SUBMISSION_ATTEMPTS",
+                "BLUE_SUBMISSION_ATTEMPTS": "RED_SUBMISSION_ATTEMPTS",
+                "RED_REVERSALS": "BLUE_REVERSALS",
+                "BLUE_REVERSALS": "RED_REVERSALS",
+                "RED_CONTROL_TIME_SECONDS": "BLUE_CONTROL_TIME_SECONDS",
+                "BLUE_CONTROL_TIME_SECONDS": "RED_CONTROL_TIME_SECONDS",
+                "RED_SIGNIFICANT_STRIKES_LANDED": "BLUE_SIGNIFICANT_STRIKES_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_LANDED": "RED_SIGNIFICANT_STRIKES_LANDED",
+                "RED_SIGNIFICANT_STRIKES_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_ATTEMPTED",
+                "RED_SIGNIFICANT_STRIKES_HEAD_LANDED": "BLUE_SIGNIFICANT_STRIKES_HEAD_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_HEAD_LANDED": "RED_SIGNIFICANT_STRIKES_HEAD_LANDED",
+                "RED_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_HEAD_ATTEMPTED",
+                "RED_SIGNIFICANT_STRIKES_BODY_LANDED": "BLUE_SIGNIFICANT_STRIKES_BODY_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_BODY_LANDED": "RED_SIGNIFICANT_STRIKES_BODY_LANDED",
+                "RED_SIGNIFICANT_STRIKES_BODY_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_BODY_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_BODY_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_BODY_ATTEMPTED",
+                "RED_SIGNIFICANT_STRIKES_LEG_LANDED": "BLUE_SIGNIFICANT_STRIKES_LEG_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_LEG_LANDED": "RED_SIGNIFICANT_STRIKES_LEG_LANDED",
+                "RED_SIGNIFICANT_STRIKES_LEG_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_LEG_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_LEG_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_LEG_ATTEMPTED",
+                "RED_SIGNIFICANT_STRIKES_DISTANCE_LANDED": "BLUE_SIGNIFICANT_STRIKES_DISTANCE_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_DISTANCE_LANDED": "RED_SIGNIFICANT_STRIKES_DISTANCE_LANDED",
+                "RED_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_DISTANCE_ATTEMPTED",
+                "RED_SIGNIFICANT_STRIKES_CLINCH_LANDED": "BLUE_SIGNIFICANT_STRIKES_CLINCH_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_CLINCH_LANDED": "RED_SIGNIFICANT_STRIKES_CLINCH_LANDED",
+                "RED_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_CLINCH_ATTEMPTED",
+                "RED_SIGNIFICANT_STRIKES_GROUND_LANDED": "BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED",
+                "BLUE_SIGNIFICANT_STRIKES_GROUND_LANDED": "RED_SIGNIFICANT_STRIKES_GROUND_LANDED",
+                "RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED": "BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED",
+                "BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED": "RED_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED",
+            }
+
+            bouts_by_round_df.update(
+                bouts_overall_df.loc[
+                    bouts_overall_df["BOUT_ID"].isin(self.bout_ids_to_flip)
+                ].rename(columns=swap_map_by_round)
+            )
 
         flag = True
         if self.scrape_type == "most_recent":
