@@ -182,9 +182,9 @@ class UFCStatsCompletedBoutsPipeline:
             pd.DataFrame(self.bouts_by_round)
             .sort_values(
                 by=["BOUT_ID", "ROUND"],
-                key=lambda x: x
-                if x.name != "BOUT_ID"
-                else x.map(lambda e: bout_ids.index(e)),
+                key=lambda x: (
+                    x if x.name != "BOUT_ID" else x.map(lambda e: bout_ids.index(e))
+                ),
             )
             .reset_index(drop=True)
         )
