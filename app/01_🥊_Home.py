@@ -1,4 +1,5 @@
 # standard library imports
+import os
 import sqlite3
 
 # third party imports
@@ -15,6 +16,15 @@ st.divider()
 
 st.markdown("""### Upcoming""")
 st.info("Last updated: TBA")
+
+_left, mid, _right = st.columns([0.2, 0.5, 0.2])
+with mid:
+    st.image(os.path.join(os.path.dirname(__file__), "images", "cat-crying-ufc.png"))
+
+st.markdown(
+    "ignore the above image - this app has no idea of knowing if there's an event this week or not (yet)"
+)
+st.markdown("i swear this will work in the future, for now enjoy my artwork")
 
 st.divider()
 st.markdown("""### Socials""")
