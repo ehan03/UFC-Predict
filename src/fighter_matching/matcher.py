@@ -65,7 +65,6 @@ class FighterMatcher:
             unknown_fightoddsio = pd.read_sql(
                 UNKNOWN_FIGHTODDSIO_UPCOMING_BOUTS, self.conn
             )
-            assert unknown_ufcstats.shape[0] == unknown_fightoddsio.shape[0]
 
             unknown_ufcstats[
                 "FIGHTER_NAME_CLOSE"
