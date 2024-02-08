@@ -40,7 +40,8 @@ class SherdogResultsSpider(Spider):
         "RETRY_TIMES": 1,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            # TODO: Add Sherdog pipelines
+            "ufc_scrapy.pipelines.SherdogFightersPipeline": 100,
+            "ufc_scrapy.pipelines.SherdogCompletedBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -54,6 +55,17 @@ class SherdogResultsSpider(Spider):
             "loss": "L",
             "draw": "D",
             "nc": "NC",
+        }
+        self.weight_class_map = {
+            "Strawweight": 115,
+            "Flyweight": 125,
+            "Bantamweight": 135,
+            "Featherweight": 145,
+            "Lightweight": 155,
+            "Welterweight": 170,
+            "Middleweight": 185,
+            "Light Heavyweight": 205,
+            "Heavyweight": 265,
         }
 
     def start_requests(self):
@@ -176,11 +188,21 @@ class SherdogResultsSpider(Spider):
             main_event_weight_class = main_event.css(
                 "div.versus > span.weight_class::text"
             )
-            main_event_bout_item["WEIGHT_CLASS"] = (
-                main_event_weight_class.get().strip()
-                if main_event_weight_class
-                else None
-            )
+            main_event_bout_item["WEIGHT_CLASS"] = None
+            main_event_bout_item["WEIGHT"] = None
+            if main_event_weight_class:
+                main_event_weight_class_name = main_event_weight_class.get().strip()
+                if "lb" not in main_event_weight_class_name:
+                    main_event_bout_item["WEIGHT_CLASS"] = main_event_weight_class_name
+                    main_event_bout_item["WEIGHT"] = self.weight_class_map[
+                        main_event_weight_class_name
+                    ]
+                else:
+                    main_event_weight = int(
+                        main_event_weight_class_name.split(" ")[0].replace("lb", "")
+                    )
+                    main_event_bout_item["WEIGHT_CLASS"] = "Catchweight"
+                    main_event_bout_item["WEIGHT"] = main_event_weight
 
             main_event_resume_td_tags = main_event.css(
                 "table.fight_card_resume > tr > td"
@@ -240,10 +262,18 @@ class SherdogResultsSpider(Spider):
                     .get()
                 )
 
-                weight_class = tds[2].css("span.weight_class::text").get()
-                bout_item["WEIGHT_CLASS"] = (
-                    weight_class.strip() if weight_class else None
-                )
+                weight_class = tds[2].css("span.weight_class::text")
+                bout_item["WEIGHT_CLASS"] = None
+                bout_item["WEIGHT"] = None
+                if weight_class:
+                    weight_class_name = weight_class.get().strip()
+                    if "lb" not in weight_class_name:
+                        bout_item["WEIGHT_CLASS"] = weight_class_name
+                        bout_item["WEIGHT"] = self.weight_class_map[weight_class_name]
+                    else:
+                        weight = int(weight_class_name.split(" ")[0].replace("lb", ""))
+                        bout_item["WEIGHT_CLASS"] = "Catchweight"
+                        bout_item["WEIGHT"] = weight
 
                 bout_item["FIGHTER_2_ID"] = (
                     tds[3]
@@ -322,7 +352,7 @@ class SherdogUpcomingEventSpider(Spider):
     Spider for scraping upcoming UFC event data from Sherdog
     """
 
-    name = "sherdog_upcoming_event_spider"
+    name = "sherdog_upcoming_spider"
     allowed_domains = ["sherdog.com"]
     start_urls = [
         "https://www.sherdog.com/organizations/Ultimate-Fighting-Championship-UFC-2/upcoming-events/1"
@@ -344,7 +374,8 @@ class SherdogUpcomingEventSpider(Spider):
         "RETRY_TIMES": 1,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            # TODO: Add Sherdog pipelines
+            "ufc_scrapy.pipelines.SherdogFightersPipeline": 100,
+            "ufc_scrapy.pipelines.SherdogUpcomingBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -352,6 +383,17 @@ class SherdogUpcomingEventSpider(Spider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.date_today = datetime.now(timezone.utc).date()
+        self.weight_class_map = {
+            "Strawweight": 115,
+            "Flyweight": 125,
+            "Bantamweight": 135,
+            "Featherweight": 145,
+            "Lightweight": 155,
+            "Welterweight": 170,
+            "Middleweight": 185,
+            "Light Heavyweight": 205,
+            "Heavyweight": 265,
+        }
 
     def parse(self, response, **kwargs):
         next_saturday = (
@@ -428,9 +470,25 @@ class SherdogUpcomingEventSpider(Spider):
                 "div.fighter.right_side > a[itemprop='url']::attr(href)"
             ).get()
         )
-        main_event_upcoming_bout_item["WEIGHT_CLASS"] = (
-            main_event.css("div.versus > span.weight_class::text").get().strip()
-        )
+        main_event_weight_class = main_event.css("div.versus > span.weight_class::text")
+        main_event_upcoming_bout_item["WEIGHT_CLASS"] = None
+        main_event_upcoming_bout_item["WEIGHT"] = None
+        if main_event_weight_class:
+            main_event_weight_class_name = main_event_weight_class.get().strip()
+            if "lb" not in main_event_weight_class_name:
+                main_event_upcoming_bout_item["WEIGHT_CLASS"] = (
+                    main_event_weight_class_name
+                )
+                main_event_upcoming_bout_item["WEIGHT"] = self.weight_class_map[
+                    main_event_weight_class_name
+                ]
+            else:
+                main_event_weight = int(
+                    main_event_weight_class_name.split(" ")[0].replace("lb", "")
+                )
+                main_event_upcoming_bout_item["WEIGHT_CLASS"] = "Catchweight"
+                main_event_upcoming_bout_item["WEIGHT"] = main_event_weight
+
         main_event_upcoming_bout_item["BOUT_ORDINAL"] = int(
             w3lib.html.remove_tags(
                 response.css(
@@ -477,9 +535,22 @@ class SherdogUpcomingEventSpider(Spider):
                 )
                 .get()
             )
-            upcoming_bout_item["WEIGHT_CLASS"] = (
-                tds[2].css("span.weight_class::text").get().strip()
-            )
+
+            weight_class = tds[2].css("span.weight_class::text")
+            upcoming_bout_item["WEIGHT_CLASS"] = None
+            upcoming_bout_item["WEIGHT"] = None
+            if weight_class:
+                weight_class_name = weight_class.get().strip()
+                if "lb" not in weight_class_name:
+                    upcoming_bout_item["WEIGHT_CLASS"] = weight_class_name
+                    upcoming_bout_item["WEIGHT"] = self.weight_class_map[
+                        weight_class_name
+                    ]
+                else:
+                    weight = int(weight_class_name.split(" ")[0].replace("lb", ""))
+                    upcoming_bout_item["WEIGHT_CLASS"] = "Catchweight"
+                    upcoming_bout_item["WEIGHT"] = weight
+
             upcoming_bout_item["FIGHTER_2_ID"] = (
                 tds[3]
                 .css(

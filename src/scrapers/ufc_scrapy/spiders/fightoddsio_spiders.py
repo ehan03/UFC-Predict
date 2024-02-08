@@ -360,9 +360,6 @@ class FightOddsIOResultsSpider(Spider):
         fighter_item["STANCE"] = (
             fighter_data["stance"] if fighter_data["stance"] else None
         )
-        fighter_item["NATIONALITY"] = (
-            fighter_data["nationality"].strip() if fighter_data["nationality"] else None
-        )
         # 1970-01-01 used as placeholder for missing DOB
         fighter_item["DATE_OF_BIRTH"] = (
             fighter_data["birthDate"]
@@ -608,9 +605,6 @@ class FightOddsIOUpcomingEventSpider(Spider):
         )
         fighter_item["STANCE"] = (
             fighter_data["stance"] if fighter_data["stance"] else None
-        )
-        fighter_item["NATIONALITY"] = (
-            fighter_data["nationality"].strip() if fighter_data["nationality"] else None
         )
         # 1970-01-01 used as placeholder for missing DOB
         fighter_item["DATE_OF_BIRTH"] = (
