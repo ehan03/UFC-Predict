@@ -6,6 +6,7 @@
 from scrapy import Field, Item
 
 
+# UFC Stats items
 class UFCStatsFighterItem(Item):
     """
     Item class for fighter data from UFCStats
@@ -26,15 +27,11 @@ class UFCStatsBoutOverallItem(Item):
     """
 
     BOUT_ID = Field()
-
-    # Info from event page
     EVENT_ID = Field()
     EVENT_NAME = Field()
     DATE = Field()
     LOCATION = Field()
     BOUT_ORDINAL = Field()
-
-    # Info from bout page
     RED_FIGHTER_ID = Field()
     BLUE_FIGHTER_ID = Field()
     RED_OUTCOME = Field()
@@ -56,11 +53,9 @@ class UFCStatsBoutRoundItem(Item):
     Item class for round-by-round bout data from UFCStats
     """
 
-    BOUT_ROUND_ID = Field()
     BOUT_ID = Field()
     ROUND = Field()
     TIME_FOUGHT_SECONDS = Field()
-
     RED_KNOCKDOWNS = Field()
     BLUE_KNOCKDOWNS = Field()
     RED_TOTAL_STRIKES_LANDED = Field()
@@ -77,7 +72,6 @@ class UFCStatsBoutRoundItem(Item):
     BLUE_REVERSALS = Field()
     RED_CONTROL_TIME_SECONDS = Field()
     BLUE_CONTROL_TIME_SECONDS = Field()
-
     RED_SIGNIFICANT_STRIKES_LANDED = Field()
     RED_SIGNIFICANT_STRIKES_ATTEMPTED = Field()
     BLUE_SIGNIFICANT_STRIKES_LANDED = Field()
@@ -108,6 +102,25 @@ class UFCStatsBoutRoundItem(Item):
     BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED = Field()
 
 
+class UFCStatsUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from UFCStats
+    """
+
+    BOUT_ID = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    BOUT_ORDINAL = Field()
+    RED_FIGHTER_ID = Field()
+    BLUE_FIGHTER_ID = Field()
+    WEIGHT_CLASS = Field()
+    BOUT_GENDER = Field()
+    BOUT_LONGNAME = Field()
+
+
+# FightOdds.io items
 class FightOddsIOFighterItem(Item):
     """
     Item class for fighter data from FightOdds.io
@@ -121,7 +134,6 @@ class FightOddsIOFighterItem(Item):
     LEG_REACH_INCHES = Field()
     FIGHTING_STYLE = Field()
     STANCE = Field()
-    NATIONALITY = Field()
     DATE_OF_BIRTH = Field()
 
 
@@ -140,7 +152,6 @@ class FightOddsIOBoutItem(Item):
     BOUT_CARD_TYPE = Field()
     WEIGHT_CLASS = Field()
     WEIGHT = Field()
-
     FIGHTER_1_SLUG = Field()
     FIGHTER_2_SLUG = Field()
     WINNER_SLUG = Field()
@@ -160,25 +171,6 @@ class FightOddsIOClosingOddsItem(Item):
     FIGHTER_2_ODDS = Field()
 
 
-class UFCStatsUpcomingBoutItem(Item):
-    """
-    Item class for upcoming bout data from UFCStats
-    """
-
-    BOUT_ID = Field()
-    EVENT_ID = Field()
-    EVENT_NAME = Field()
-    DATE = Field()
-    LOCATION = Field()
-    BOUT_ORDINAL = Field()
-
-    RED_FIGHTER_ID = Field()
-    BLUE_FIGHTER_ID = Field()
-    WEIGHT_CLASS = Field()
-    BOUT_GENDER = Field()
-    BOUT_LONGNAME = Field()
-
-
 class FightOddsIOUpcomingBoutItem(Item):
     """
     Item class for upcoming bout data from FightOdds.io
@@ -190,8 +182,79 @@ class FightOddsIOUpcomingBoutItem(Item):
     DATE = Field()
     LOCATION = Field()
     VENUE = Field()
-
     FIGHTER_1_SLUG = Field()
     FIGHTER_2_SLUG = Field()
     FIGHTER_1_ODDS_DRAFTKINGS = Field()
     FIGHTER_2_ODDS_DRAFTKINGS = Field()
+
+
+# Sherdog items
+class SherdogFighterItem(Item):
+    """
+    Item class for fighter data from Sherdog
+    """
+
+    FIGHTER_ID = Field()
+    FIGHTER_NAME = Field()
+    FIGHTER_NICKNAME = Field()
+    HEIGHT_INCHES = Field()
+    DATE_OF_BIRTH = Field()
+    NATIONALITY = Field()
+    PRO_DEBUT_DATE = Field()
+
+
+class SherdogBoutItem(Item):
+    """
+    Item class for historical bout data from Sherdog
+    """
+
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    VENUE = Field()
+    BOUT_ORDINAL = Field()
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    FIGHTER_1_OUTCOME = Field()
+    FIGHTER_2_OUTCOME = Field()
+    WEIGHT_CLASS = Field()
+    WEIGHT = Field()
+    OUTCOME_METHOD = Field()
+    END_ROUND = Field()
+    END_ROUND_TIME_SECONDS = Field()
+
+
+class SherdogUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from Sherdog
+    """
+
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    VENUE = Field()
+    BOUT_ORDINAL = Field()
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    WEIGHT_CLASS = Field()
+
+
+# FightMatrix items
+class FightMatrixFighterItem(Item):
+    """
+    Item class for fighter data from FightMatrix
+    """
+
+
+class FightMatrixBoutELOItem(Item):
+    """
+    Item class for historical bout data from FightMatrix
+    """
+
+
+class FightMatrixRankingItem(Item):
+    """
+    Item class for ranking data from FightMatrix
+    """
