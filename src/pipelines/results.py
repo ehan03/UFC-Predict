@@ -9,10 +9,9 @@ from scrapy.crawler import CrawlerProcess
 
 # local imports
 from src.fighter_matching import FighterMatcher
-from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import (
-    FightOddsIOResultsSpider,
-    UFCStatsResultsSpider,
-)
+from src.scrapers.ufc_scrapy.spiders.fightoddsio_spiders import FightOddsIOResultsSpider
+from src.scrapers.ufc_scrapy.spiders.sherdog_spiders import SherdogResultsSpider
+from src.scrapers.ufc_scrapy.spiders.ufcstats_spiders import UFCStatsResultsSpider
 
 
 class ResultsPipeline:
@@ -36,6 +35,7 @@ class ResultsPipeline:
         process = CrawlerProcess(settings={"LOG_LEVEL": "INFO"})
         process.crawl(UFCStatsResultsSpider, scrape_type=self.scrape_type)
         process.crawl(FightOddsIOResultsSpider, scrape_type=self.scrape_type)
+        process.crawl(SherdogResultsSpider, scrape_type=self.scrape_type)
         process.start()
 
     def update_ufcstats_fightoddsio_linkage(self):
@@ -50,13 +50,6 @@ class ResultsPipeline:
 
         fighter_matcher()
 
-    def update_fighter_elo_scores(self):
-        """
-        Update fighter ELOs
-        """
-
-        pass
-
     def update_pnl(self):
         """
         Update PnL on bets
@@ -70,4 +63,4 @@ class ResultsPipeline:
         """
 
         self.get_results()
-        self.update_ufcstats_fightoddsio_linkage()
+        # self.update_ufcstats_fightoddsio_linkage()

@@ -10,10 +10,10 @@ from scrapy.crawler import CrawlerProcess
 # local imports
 from src.elevation import ElevationFinder
 from src.fighter_matching import FighterMatcher
-from src.scrapers.ufc_scrapy.spiders.ufc_scrapers import (
+from src.scrapers.ufc_scrapy.spiders.fightoddsio_spiders import (
     FightOddsIOUpcomingEventSpider,
-    UFCStatsUpcomingEventSpider,
 )
+from src.scrapers.ufc_scrapy.spiders.ufcstats_spiders import UFCStatsUpcomingEventSpider
 
 
 class UpcomingEventPipeline:
@@ -59,5 +59,5 @@ class UpcomingEventPipeline:
         """
 
         self.get_upcoming_event()
-        self.update_ufcstats_fightoddsio_linkage()
-        self.update_location_elevations()
+        # self.update_ufcstats_fightoddsio_linkage()
+        # self.update_location_elevations()

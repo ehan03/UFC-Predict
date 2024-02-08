@@ -56,7 +56,6 @@ class UFCStatsBoutRoundItem(Item):
     Item class for round-by-round bout data from UFCStats
     """
 
-    BOUT_ROUND_ID = Field()
     BOUT_ID = Field()
     ROUND = Field()
     TIME_FOUGHT_SECONDS = Field()
@@ -108,6 +107,25 @@ class UFCStatsBoutRoundItem(Item):
     BLUE_SIGNIFICANT_STRIKES_GROUND_ATTEMPTED = Field()
 
 
+class UFCStatsUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from UFCStats
+    """
+
+    BOUT_ID = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    BOUT_ORDINAL = Field()
+
+    RED_FIGHTER_ID = Field()
+    BLUE_FIGHTER_ID = Field()
+    WEIGHT_CLASS = Field()
+    BOUT_GENDER = Field()
+    BOUT_LONGNAME = Field()
+
+
 class FightOddsIOFighterItem(Item):
     """
     Item class for fighter data from FightOdds.io
@@ -116,12 +134,7 @@ class FightOddsIOFighterItem(Item):
     FIGHTER_SLUG = Field()
     FIGHTER_NAME = Field()
     FIGHTER_NICKNAME = Field()
-    HEIGHT_CENTIMETERS = Field()
     REACH_INCHES = Field()
-    LEG_REACH_INCHES = Field()
-    FIGHTING_STYLE = Field()
-    STANCE = Field()
-    NATIONALITY = Field()
     DATE_OF_BIRTH = Field()
 
 
@@ -160,25 +173,6 @@ class FightOddsIOClosingOddsItem(Item):
     FIGHTER_2_ODDS = Field()
 
 
-class UFCStatsUpcomingBoutItem(Item):
-    """
-    Item class for upcoming bout data from UFCStats
-    """
-
-    BOUT_ID = Field()
-    EVENT_ID = Field()
-    EVENT_NAME = Field()
-    DATE = Field()
-    LOCATION = Field()
-    BOUT_ORDINAL = Field()
-
-    RED_FIGHTER_ID = Field()
-    BLUE_FIGHTER_ID = Field()
-    WEIGHT_CLASS = Field()
-    BOUT_GENDER = Field()
-    BOUT_LONGNAME = Field()
-
-
 class FightOddsIOUpcomingBoutItem(Item):
     """
     Item class for upcoming bout data from FightOdds.io
@@ -195,3 +189,74 @@ class FightOddsIOUpcomingBoutItem(Item):
     FIGHTER_2_SLUG = Field()
     FIGHTER_1_ODDS_DRAFTKINGS = Field()
     FIGHTER_2_ODDS_DRAFTKINGS = Field()
+
+
+class SherdogFighterItem(Item):
+    """
+    Item class for fighter data from Sherdog
+    """
+
+    FIGHTER_ID = Field()
+    FIGHTER_NAME = Field()
+    FIGHTER_NICKNAME = Field()
+    HEIGHT_INCHES = Field()
+    DATE_OF_BIRTH = Field()
+    NATIONALITY = Field()
+    PRO_DEBUT_DATE = Field()
+
+
+class SherdogBoutItem(Item):
+    """
+    Item class for historical bout data from Sherdog
+    """
+
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    VENUE = Field()
+    BOUT_ORDINAL = Field()
+
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    FIGHTER_1_OUTCOME = Field()
+    FIGHTER_2_OUTCOME = Field()
+    WEIGHT_CLASS = Field()
+    OUTCOME_METHOD = Field()
+    END_ROUND = Field()
+    END_ROUND_TIME_SECONDS = Field()
+
+
+class SherdogUpcomingBoutItem(Item):
+    """
+    Item class for upcoming bout data from Sherdog
+    """
+
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    LOCATION = Field()
+    VENUE = Field()
+    BOUT_ORDINAL = Field()
+
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    WEIGHT_CLASS = Field()
+
+
+class FightMatrixFighterItem(Item):
+    """
+    Item class for fighter data from FightMatrix
+    """
+
+
+class FightMatrixBoutELOItem(Item):
+    """
+    Item class for historical bout data from FightMatrix
+    """
+
+
+class FightMatrixRankingItem(Item):
+    """
+    Item class for ranking data from FightMatrix
+    """
