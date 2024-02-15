@@ -223,6 +223,27 @@ class SherdogBoutItem(Item):
     OUTCOME_METHOD = Field()
     END_ROUND = Field()
     END_ROUND_TIME_SECONDS = Field()
+    TOTAL_TIME_SECONDS = Field()
+
+
+class SherdogFighterBoutHistoryItem(Item):
+    """
+    Item class for historical bout data from Sherdog beyond
+    those in the UFC
+    """
+
+    FIGHTER_ID = Field()
+    FIGHTER_BOUT_ORDINAL = Field()
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    OPPONENT_ID = Field()
+    OPPONENT_NAME = Field()
+    OUTCOME = Field()
+    OUTCOME_METHOD = Field()
+    END_ROUND = Field()
+    END_ROUND_TIME_SECONDS = Field()
+    TOTAL_TIME_SECONDS = Field()
 
 
 class SherdogUpcomingBoutItem(Item):
@@ -247,14 +268,47 @@ class FightMatrixFighterItem(Item):
     Item class for fighter data from FightMatrix
     """
 
+    FIGHTER_ID = Field()
+    SHERDOG_FIGHTER_ID = Field()
+    FIGHTER_NAME = Field()
+    PRO_DEBUT_DATE = Field()
+    UFC_DEBUT_DATE = Field()
+
 
 class FightMatrixBoutELOItem(Item):
     """
     Item class for historical bout data from FightMatrix
     """
 
+    FIGHTER_ID = Field()
+    FIGHTER_BOUT_ORDINAL = Field()
+    EVENT_NAME = Field()
+    DATE = Field()
+    OPPONENT_NAME = Field()
+    ELO_K170_PRE = Field()
+    ELO_K170_POST = Field()
+    OPP_ELO_K170_PRE = Field()
+    OPP_ELO_K170_POST = Field()
+    ELO_MODIFIED_PRE = Field()
+    ELO_MODIFIED_POST = Field()
+    OPP_ELO_MODIFIED_PRE = Field()
+    OPP_ELO_MODIFIED_POST = Field()
+    GLICKO1_PRE = Field()
+    GLICKO1_POST = Field()
+    OPP_GLICKO1_PRE = Field()
+    OPP_GLICKO1_POST = Field()
+    OUTCOME = Field()
+    OUTCOME_METHOD = Field()
+    END_ROUND = Field()
+
 
 class FightMatrixRankingItem(Item):
     """
     Item class for ranking data from FightMatrix
     """
+
+    ISSUE_DATE = Field()
+    DIVISION = Field()
+    FIGHTER_ID = Field()
+    RANK = Field()
+    POINTS = Field()
