@@ -48,8 +48,8 @@ class UFCStatsResultsSpider(Spider):
         "RETRY_TIMES": 1,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsCompletedBoutsPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.ufcstats_pipelines.UFCStatsFightersPipeline": 100,
+            "ufc_scrapy.scrapy_pipelines.ufcstats_pipelines.UFCStatsCompletedBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
