@@ -16,9 +16,9 @@ from src.databases.create_statements import (
     CREATE_FIGHTODDSIO_BOUTS_TABLE,
     CREATE_FIGHTODDSIO_FIGHTERS_TABLE,
     CREATE_FIGHTODDSIO_UPCOMING_TABLE,
+    CREATE_SHERDOG_BOUT_HISTORY_TABLE,
     CREATE_SHERDOG_BOUTS_TABLE,
     CREATE_SHERDOG_FIGHTERS_TABLE,
-    CREATE_SHERDOG_UPCOMING_TABLE,
     CREATE_UFCSTATS_BOUTS_BY_ROUND_TABLE,
     CREATE_UFCSTATS_BOUTS_OVERALL_TABLE,
     CREATE_UFCSTATS_FIGHTERS_TABLE,
@@ -771,9 +771,9 @@ class SherdogCompletedBoutsPipeline:
         self.conn.close()
 
 
-class SherdogUpcomingBoutsPipeline:
+class SherdogFighterBoutHistoryPipeline:
     """
-    Item pipeline for Sherdog upcoming bout data
+    Item pipeline for Sherdog historical bout data beyond those in the UFC
     """
 
     def __init__(self) -> None:
@@ -781,50 +781,79 @@ class SherdogUpcomingBoutsPipeline:
         Initialize pipeline object
         """
 
-        self.upcoming_bouts = []
+        self.bout_history = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "data",
+                "sherdog_bout_history.db",
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         self.cur = self.conn.cursor()
-        self.cur.execute(CREATE_SHERDOG_UPCOMING_TABLE)
+        self.cur.execute(CREATE_SHERDOG_BOUT_HISTORY_TABLE)
 
-    def open_spider(self, spider):
-        """
-        Open the spider
-        """
 
-        assert spider.name == "sherdog_upcoming_spider"
+# class SherdogUpcomingBoutsPipeline:
+#     """
+#     Item pipeline for Sherdog upcoming bout data
+#     """
 
-    def process_item(self, item, spider):
-        """
-        Process item objects
-        """
+#     def __init__(self) -> None:
+#         """
+#         Initialize pipeline object
+#         """
 
-        if isinstance(item, SherdogUpcomingBoutItem):
-            self.upcoming_bouts.append(dict(item))
+#         self.upcoming_bouts = []
+#         self.conn = sqlite3.connect(
+#             os.path.join(
+#                 os.path.dirname(__file__), "..", "..", "..", "data", "ufc_main.db"
+#             ),
+#             detect_types=sqlite3.PARSE_DECLTYPES,
+#         )
+#         self.cur = self.conn.cursor()
+#         self.cur.execute(CREATE_SHERDOG_UPCOMING_TABLE)
 
-        return item
+#     def open_spider(self, spider):
+#         """
+#         Open the spider
+#         """
 
-    def close_spider(self, spider):
-        """
-        Insert the scraped data into the database and close the spider
-        """
+#         assert spider.name == "sherdog_upcoming_spider"
 
-        upcoming_bouts_df = pd.DataFrame(self.upcoming_bouts)
-        event_id = upcoming_bouts_df["EVENT_ID"].values[0]
-        self.cur.execute(
-            "DELETE FROM SHERDOG_UPCOMING WHERE EVENT_ID = ?;", (event_id,)
-        )
+#     def process_item(self, item, spider):
+#         """
+#         Process item objects
+#         """
 
-        upcoming_bouts_df.to_sql(
-            "SHERDOG_UPCOMING",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
+#         if isinstance(item, SherdogUpcomingBoutItem):
+#             self.upcoming_bouts.append(dict(item))
 
-        self.conn.commit()
-        self.conn.close()
+#         return item
+
+#     def close_spider(self, spider):
+#         """
+#         Insert the scraped data into the database and close the spider
+#         """
+
+#         upcoming_bouts_df = pd.DataFrame(self.upcoming_bouts)
+#         event_id = upcoming_bouts_df["EVENT_ID"].values[0]
+#         self.cur.execute(
+#             "DELETE FROM SHERDOG_UPCOMING WHERE EVENT_ID = ?;", (event_id,)
+#         )
+
+#         upcoming_bouts_df.to_sql(
+#             "SHERDOG_UPCOMING",
+#             self.conn,
+#             if_exists="append",
+#             index=False,
+#         )
+
+#         self.conn.commit()
+#         self.conn.close()
+
+
+# All FightMatrix pipelines

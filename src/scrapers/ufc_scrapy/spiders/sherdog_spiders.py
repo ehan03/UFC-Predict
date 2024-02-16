@@ -26,8 +26,8 @@ class SherdogResultsSpider(Spider):
     allowed_domains = ["sherdog.com"]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 6,
-        "CONCURRENT_REQUESTS": 6,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 8,
+        "CONCURRENT_REQUESTS": 8,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -38,7 +38,7 @@ class SherdogResultsSpider(Spider):
         "DEPTH_PRIORITY": 1,
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        "RETRY_TIMES": 1,
+        "RETRY_TIMES": 5,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             # "ufc_scrapy.pipelines.SherdogFightersPipeline": 100,
@@ -46,7 +46,6 @@ class SherdogResultsSpider(Spider):
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
         "DOWNLOAD_TIMEOUT": 600,
-        "DOWNLOAD_DELAY": 0.75,
     }
 
     def __init__(self, *args, scrape_type: str, **kwargs):

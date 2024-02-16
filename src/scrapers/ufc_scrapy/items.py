@@ -275,28 +275,38 @@ class FightMatrixFighterItem(Item):
     UFC_DEBUT_DATE = Field()
 
 
+class FightMatrixTempFighterItem(Item):
+    """
+    Item class for temporary fighter data from FightMatrix
+    used for filtering for UFC fighters only in rankings data
+    """
+
+    FIGHTER_ID = Field()
+    UFC_DEBUT_DATE = Field()
+
+
 class FightMatrixBoutELOItem(Item):
     """
     Item class for historical bout data from FightMatrix
     """
 
     FIGHTER_ID = Field()
-    FIGHTER_BOUT_ORDINAL = Field()
     EVENT_NAME = Field()
     DATE = Field()
+    OPPONENT_ID = Field()
     OPPONENT_NAME = Field()
     ELO_K170_PRE = Field()
     ELO_K170_POST = Field()
-    OPP_ELO_K170_PRE = Field()
-    OPP_ELO_K170_POST = Field()
     ELO_MODIFIED_PRE = Field()
     ELO_MODIFIED_POST = Field()
-    OPP_ELO_MODIFIED_PRE = Field()
-    OPP_ELO_MODIFIED_POST = Field()
     GLICKO1_PRE = Field()
     GLICKO1_POST = Field()
-    OPP_GLICKO1_PRE = Field()
-    OPP_GLICKO1_POST = Field()
+    OPPONENT_ELO_K170_PRE = Field()
+    OPPONENT_ELO_K170_POST = Field()
+    OPPONENT_ELO_MODIFIED_PRE = Field()
+    OPPONENT_ELO_MODIFIED_POST = Field()
+    OPPONENT_GLICKO1_PRE = Field()
+    OPPONENT_GLICKO1_POST = Field()
     OUTCOME = Field()
     OUTCOME_METHOD = Field()
     END_ROUND = Field()
@@ -308,7 +318,7 @@ class FightMatrixRankingItem(Item):
     """
 
     ISSUE_DATE = Field()
-    DIVISION = Field()
+    WEIGHT_CLASS = Field()
     FIGHTER_ID = Field()
     RANK = Field()
     POINTS = Field()
