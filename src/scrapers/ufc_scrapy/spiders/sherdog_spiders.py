@@ -41,8 +41,8 @@ class SherdogResultsSpider(Spider):
         "RETRY_TIMES": 5,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            # "ufc_scrapy.pipelines.SherdogFightersPipeline": 100,
-            # "ufc_scrapy.pipelines.SherdogCompletedBoutsPipeline": 200,
+            # "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogFightersPipeline": 100,
+            # "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogCompletedBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
         "DOWNLOAD_TIMEOUT": 600,
@@ -440,8 +440,8 @@ class SherdogResultsSpider(Spider):
 #         "RETRY_TIMES": 1,
 #         "LOG_LEVEL": "INFO",
 #         "ITEM_PIPELINES": {
-#             "ufc_scrapy.pipelines.SherdogFightersPipeline": 100,
-#             "ufc_scrapy.pipelines.SherdogUpcomingBoutsPipeline": 200,
+#             "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogFightersPipeline": 100,
+#             "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogUpcomingBoutsPipeline": 200,
 #         },
 #         "CLOSESPIDER_ERRORCOUNT": 1,
 #     }
