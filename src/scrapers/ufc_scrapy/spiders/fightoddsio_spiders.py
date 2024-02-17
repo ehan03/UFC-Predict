@@ -48,8 +48,8 @@ class FightOddsIOResultsSpider(Spider):
         "LOG_LEVEL": "INFO",
         "LOG_FORMATTER": "ufc_scrapy.logformatter.PoliteLogFormatter",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.FightOddsIOFightersPipeline": 100,
-            "ufc_scrapy.pipelines.FightOddsIOCompletedBoutsPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOFightersPipeline": 100,
+            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOCompletedBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -450,8 +450,8 @@ class FightOddsIOUpcomingEventSpider(Spider):
         "LOG_LEVEL": "INFO",
         "LOG_FORMATTER": "ufc_scrapy.logformatter.PoliteLogFormatter",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.FightOddsIOFightersPipeline": 100,
-            "ufc_scrapy.pipelines.FightOddsIOUpcomingBoutsPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOFightersPipeline": 100,
+            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOUpcomingBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
