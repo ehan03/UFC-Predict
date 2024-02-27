@@ -295,6 +295,10 @@ class FightMatrixRankingsSpider(Spider):
                     # Women's divisions didn't exist before 2013 in the UFC
                     continue
 
+                if date == "2008-01-20":
+                    # First issue date
+                    continue
+
                 yield response.follow(
                     f"https://www.fightmatrix.com/historical-mma-rankings/ranking-snapshots/?Issue={issue}&Division={division}",
                     callback=self.parse_ranking_page,
