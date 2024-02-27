@@ -46,8 +46,7 @@ class SherdogFightersPipeline:
         """
 
         assert spider.name == "sherdog_results_spider"
-        if spider.name == "sherdog_results_spider":
-            self.scrape_type = spider.scrape_type
+        self.scrape_type = spider.scrape_type
 
     def process_item(self, item, spider):
         """
@@ -67,13 +66,25 @@ class SherdogFightersPipeline:
         fighters_df = pd.DataFrame(self.fighters)
 
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM SHERDOG_FIGHTERS")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  SHERDOG_FIGHTERS;
+                """
+            )
         else:
             fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
             old_ids = []
             for fighter_id in fighter_ids:
                 res = self.cur.execute(
-                    "SELECT FIGHTER_ID FROM SHERDOG_FIGHTERS WHERE FIGHTER_ID = ?;",
+                    """
+                    SELECT 
+                      FIGHTER_ID 
+                    FROM 
+                      SHERDOG_FIGHTERS 
+                    WHERE 
+                      FIGHTER_ID = ?;
+                    """,
                     (fighter_id,),
                 ).fetchall()
                 if res:
@@ -143,11 +154,23 @@ class SherdogCompletedBoutsPipeline:
 
         flag = True
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM SHERDOG_BOUTS")
-        elif self.scrape_type == "most_recent":
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  SHERDOG_BOUTS;
+                """
+            )
+        else:
             most_recent_event_id = bouts_df["EVENT_ID"].iloc[0]
             res = self.cur.execute(
-                "SELECT EVENT_ID FROM SHERDOG_BOUTS WHERE EVENT_ID = ?;",
+                """
+                SELECT 
+                  EVENT_ID 
+                FROM 
+                  SHERDOG_BOUTS 
+                WHERE 
+                  EVENT_ID = ?;
+                """,
                 (most_recent_event_id,),
             ).fetchall()
             flag = len(res) == 0
@@ -212,12 +235,22 @@ class SherdogFighterBoutHistoryPipeline:
         )
 
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM SHERDOG_BOUT_HISTORY")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  SHERDOG_BOUT_HISTORY;
+                """
+            )
         else:
             fighter_ids = bout_history_df["FIGHTER_ID"].unique().tolist()
             for fighter_id in fighter_ids:
                 self.cur.execute(
-                    "DELETE FROM SHERDOG_BOUT_HISTORY WHERE FIGHTER_ID = ?;",
+                    """
+                    DELETE FROM 
+                      SHERDOG_BOUT_HISTORY 
+                    WHERE 
+                      FIGHTER_ID = ?;
+                    """,
                     (fighter_id,),
                 )
 

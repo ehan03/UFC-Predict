@@ -55,12 +55,8 @@ class FightOddsIOFightersPipeline:
         Open the spider
         """
 
-        assert spider.name in [
-            "fightoddsio_results_spider",
-            "fightoddsio_upcoming_spider",
-        ]
-        if spider.name == "fightoddsio_results_spider":
-            self.scrape_type = spider.scrape_type
+        assert spider.name == "fightoddsio_results_spider"
+        self.scrape_type = spider.scrape_type
 
     def process_item(self, item, spider):
         if isinstance(item, FightOddsIOFighterItem):
@@ -81,13 +77,25 @@ class FightOddsIOFightersPipeline:
         fighters_df = pd.DataFrame(self.fighters)
 
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM FIGHTODDSIO_FIGHTERS")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  FIGHTODDSIO_FIGHTERS;
+                """
+            )
         else:
             fighter_slugs = fighters_df["FIGHTER_SLUG"].values.tolist()
             old_slugs = []
             for fighter_slug in fighter_slugs:
                 res = self.cur.execute(
-                    "SELECT FIGHTER_SLUG FROM FIGHTODDSIO_FIGHTERS WHERE FIGHTER_SLUG = ?;",
+                    """
+                    SELECT 
+                      FIGHTER_SLUG 
+                    FROM 
+                      FIGHTODDSIO_FIGHTERS 
+                    WHERE 
+                      FIGHTER_SLUG = ?;
+                    """,
                     (fighter_slug,),
                 ).fetchall()
                 if res:
@@ -165,14 +173,25 @@ class FightOddsIOCompletedBoutsPipeline:
         )
         odds_df = pd.DataFrame(self.bout_odds)
 
-        if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM FIGHTODDSIO_BOUTS")
-
         flag = True
-        if self.scrape_type == "most_recent":
+        if self.scrape_type == "all":
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  FIGHTODDSIO_BOUTS;
+                """
+            )
+        else:
             most_recent_event_slug = bouts_df["EVENT_SLUG"].values[0]
             res = self.cur.execute(
-                "SELECT EVENT_SLUG FROM FIGHTODDSIO_BOUTS WHERE EVENT_SLUG = ?;",
+                """
+                SELECT 
+                  EVENT_SLUG 
+                FROM 
+                  FIGHTODDSIO_BOUTS 
+                WHERE 
+                  EVENT_SLUG = ?;
+                """,
                 (most_recent_event_slug,),
             ).fetchall()
             flag = len(res) == 0
@@ -242,7 +261,13 @@ class FightOddsIOUpcomingBoutsPipeline:
         upcoming_bouts_df = pd.DataFrame(self.upcoming_bouts)
         event_slug = upcoming_bouts_df["EVENT_SLUG"].values[0]
         self.cur.execute(
-            "DELETE FROM FIGHTODDSIO_UPCOMING WHERE EVENT_SLUG = ?;", (event_slug,)
+            """
+            DELETE FROM 
+              FIGHTODDSIO_UPCOMING 
+            WHERE 
+              EVENT_SLUG = ?;
+            """,
+            (event_slug,),
         )
 
         upcoming_bouts_df.to_sql(

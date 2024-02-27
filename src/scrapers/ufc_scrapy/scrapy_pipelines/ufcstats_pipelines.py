@@ -47,9 +47,8 @@ class UFCStatsFightersPipeline:
         Open the spider
         """
 
-        assert spider.name in ["ufcstats_results_spider", "ufcstats_upcoming_spider"]
-        if spider.name == "ufcstats_results_spider":
-            self.scrape_type = spider.scrape_type
+        assert spider.name == "ufcstats_results_spider"
+        self.scrape_type = spider.scrape_type
 
     def process_item(self, item, spider):
         """
@@ -187,6 +186,7 @@ class UFCStatsCompletedBoutsPipeline:
             .reset_index(drop=True)
         )
 
+        flag = True
         if self.scrape_type == "all":
             self.cur.execute(
                 """
@@ -266,9 +266,7 @@ class UFCStatsCompletedBoutsPipeline:
                     bouts_by_round_df["BOUT_ID"].isin(self.bout_ids_to_flip)
                 ].rename(columns=swap_map_by_round)
             )
-
-        flag = True
-        if self.scrape_type == "most_recent":
+        else:
             most_recent_event_id = bouts_overall_df["EVENT_ID"].iloc[0]
             res = self.cur.execute(
                 """
