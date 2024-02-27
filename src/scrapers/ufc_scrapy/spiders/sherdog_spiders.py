@@ -1,5 +1,4 @@
 # standard library imports
-from datetime import datetime, timedelta, timezone
 
 # third party imports
 import pandas as pd
@@ -12,7 +11,6 @@ from src.scrapers.ufc_scrapy.items import (
     SherdogBoutItem,
     SherdogFighterBoutHistoryItem,
     SherdogFighterItem,
-    SherdogUpcomingBoutItem,
 )
 from src.scrapers.ufc_scrapy.utils import convert_height
 
@@ -20,6 +18,7 @@ from src.scrapers.ufc_scrapy.utils import convert_height
 class SherdogResultsSpider(Spider):
     """
     Spider for scraping historical fighter and bout data from Sherdog
+    and FightMatrix
     """
 
     name = "sherdog_results_spider"
@@ -41,8 +40,9 @@ class SherdogResultsSpider(Spider):
         "RETRY_TIMES": 5,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            # "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogFightersPipeline": 100,
-            # "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogCompletedBoutsPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogFightersPipeline": 100,
+            "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogCompletedBoutsPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogFighterBoutHistoryPipeline": 300,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
         "DOWNLOAD_TIMEOUT": 600,
@@ -314,10 +314,13 @@ class SherdogResultsSpider(Spider):
     def parse_fighter(self, response):
         fighter_item = SherdogFighterItem()
 
-        fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
-        fighter_item["FIGHTER_NAME"] = response.css(
+        fighter_id = response.url.split("/")[-1]
+        fighter_item["FIGHTER_ID"] = fighter_id
+
+        fighter_name = response.css(
             "div.fighter-line1 > h1[itemprop='name'] > span.fn::text"
         ).get()
+        fighter_item["FIGHTER_NAME"] = fighter_name
 
         nick = response.css("div.fighter-line2 > h1[itemprop='name'] > span.nickname")
         fighter_item["FIGHTER_NICKNAME"] = nick.css("em::text").get() if nick else None
@@ -345,16 +348,17 @@ class SherdogResultsSpider(Spider):
             "div.module.fight_history > div.new_table_holder > table.new_table.fighter"
         )[0]
         fight_history_rows = pro_fight_history_table.css("tr:not([class='table_head'])")
-        fighter_item["PRO_DEBUT_DATE"] = pd.to_datetime(
+        pro_debut_date = pd.to_datetime(
             fight_history_rows[-1].css("td > span.sub_line::text").get()
         ).strftime("%Y-%m-%d")
+        fighter_item["PRO_DEBUT_DATE"] = pro_debut_date
 
         yield fighter_item
 
         for fighter_bout_ordinal, row in enumerate(reversed(fight_history_rows)):
             fighter_bout_history_item = SherdogFighterBoutHistoryItem()
 
-            fighter_bout_history_item["FIGHTER_ID"] = response.url.split("/")[-1]
+            fighter_bout_history_item["FIGHTER_ID"] = fighter_id
             fighter_bout_history_item["FIGHTER_BOUT_ORDINAL"] = fighter_bout_ordinal
 
             tds = row.css("td")
@@ -411,270 +415,3 @@ class SherdogResultsSpider(Spider):
             )
 
             yield fighter_bout_history_item
-
-
-# class SherdogUpcomingEventSpider(Spider):
-#     """
-#     Spider for scraping upcoming UFC event data from Sherdog
-#     """
-
-#     name = "sherdog_upcoming_spider"
-#     allowed_domains = ["sherdog.com"]
-#     start_urls = [
-#         "https://www.sherdog.com/organizations/Ultimate-Fighting-Championship-UFC-2/upcoming-events/1"
-#     ]
-#     custom_settings = {
-#         "ROBOTSTXT_OBEY": False,
-#         "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
-#         "CONCURRENT_REQUESTS": 10,
-#         "DOWNLOADER_MIDDLEWARES": {
-#             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
-#             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
-#         },
-#         "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
-#         "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-#         "FEED_EXPORT_ENCODING": "utf-8",
-#         "DEPTH_PRIORITY": 1,
-#         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
-#         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-#         "RETRY_TIMES": 1,
-#         "LOG_LEVEL": "INFO",
-#         "ITEM_PIPELINES": {
-#             "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogFightersPipeline": 100,
-#             "ufc_scrapy.scrapy_pipelines.sherdog_pipelines.SherdogUpcomingBoutsPipeline": 200,
-#         },
-#         "CLOSESPIDER_ERRORCOUNT": 1,
-#     }
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.date_today = datetime.now(timezone.utc).date()
-#         self.weight_class_map = {
-#             "Strawweight": 115,
-#             "Flyweight": 125,
-#             "Bantamweight": 135,
-#             "Featherweight": 145,
-#             "Lightweight": 155,
-#             "Welterweight": 170,
-#             "Middleweight": 185,
-#             "Light Heavyweight": 205,
-#             "Heavyweight": 265,
-#         }
-
-#     def parse(self, response, **kwargs):
-#         next_saturday = (
-#             self.date_today + timedelta((5 - self.date_today.weekday()) % 7)
-#         ).strftime("%Y-%m-%d")
-
-#         table = response.css(
-#             "div.single_tab#upcoming_tab > div.new_table_holder > table.new_table.event"
-#         )
-#         next_event_date = pd.to_datetime(
-#             table.css(
-#                 "tr[itemtype='http://schema.org/Event'] > td > meta[itemprop='startDate']::attr(content)"
-#             ).get()
-#         ).strftime("%Y-%m-%d")
-
-#         if next_event_date == next_saturday:
-#             upcoming_event_link = table.css(
-#                 "tr[itemtype='http://schema.org/Event'] > td > a::attr(href)"
-#             ).get()
-#             upcoming_event_name = table.css(
-#                 "tr[itemtype='http://schema.org/Event'] > td > a > span[itemprop='name']::text"
-#             ).get()
-#             upcoming_event_location = (
-#                 table.css(
-#                     "tr[itemtype='http://schema.org/Event'] > td[itemprop='location']::text"
-#                 )
-#                 .get()
-#                 .strip()
-#             )
-
-#             yield response.follow(
-#                 response.urljoin(upcoming_event_link),
-#                 callback=self.parse_upcoming_event,
-#                 cb_kwargs={
-#                     "event_name": upcoming_event_name,
-#                     "date": next_event_date,
-#                     "location": upcoming_event_location,
-#                 },
-#             )
-
-#     def parse_upcoming_event(self, response, event_name, date, location):
-#         venue = location.split(", ")[0].strip()
-#         location_city = location.replace(f"{venue}, ", "").strip()
-#         fighter_urls = []
-
-#         # Main event
-#         main_event_upcoming_bout_item = SherdogUpcomingBoutItem()
-
-#         main_event = response.css(
-#             "div[itemprop='subEvent'][itemtype='http://schema.org/Event']"
-#         )
-#         main_event_upcoming_bout_item["EVENT_ID"] = response.url.split("/")[-1]
-#         main_event_upcoming_bout_item["EVENT_NAME"] = event_name
-#         main_event_upcoming_bout_item["DATE"] = date
-#         main_event_upcoming_bout_item["LOCATION"] = location_city
-#         main_event_upcoming_bout_item["VENUE"] = venue
-#         main_event_upcoming_bout_item["FIGHTER_1_ID"] = (
-#             main_event.css("div.fighter.left_side > a[itemprop='url']::attr(href)")
-#             .get()
-#             .split("/")[-1]
-#         )
-#         fighter_urls.append(
-#             main_event.css(
-#                 "div.fighter.left_side > a[itemprop='url']::attr(href)"
-#             ).get()
-#         )
-#         main_event_upcoming_bout_item["FIGHTER_2_ID"] = (
-#             main_event.css("div.fighter.right_side > a[itemprop='url']::attr(href)")
-#             .get()
-#             .split("/")[-1]
-#         )
-#         fighter_urls.append(
-#             main_event.css(
-#                 "div.fighter.right_side > a[itemprop='url']::attr(href)"
-#             ).get()
-#         )
-#         main_event_weight_class = main_event.css("div.versus > span.weight_class::text")
-#         main_event_upcoming_bout_item["WEIGHT_CLASS"] = None
-#         main_event_upcoming_bout_item["WEIGHT"] = None
-#         if main_event_weight_class:
-#             main_event_weight_class_name = main_event_weight_class.get().strip()
-#             if "lb" not in main_event_weight_class_name:
-#                 main_event_upcoming_bout_item["WEIGHT_CLASS"] = (
-#                     main_event_weight_class_name
-#                 )
-#                 main_event_upcoming_bout_item["WEIGHT"] = self.weight_class_map[
-#                     main_event_weight_class_name
-#                 ]
-#             else:
-#                 main_event_weight = int(
-#                     main_event_weight_class_name.split(" ")[0].replace("lb", "")
-#                 )
-#                 main_event_upcoming_bout_item["WEIGHT_CLASS"] = "Catchweight"
-#                 main_event_upcoming_bout_item["WEIGHT"] = main_event_weight
-
-#         main_event_upcoming_bout_item["BOUT_ORDINAL"] = int(
-#             w3lib.html.remove_tags(
-#                 response.css(
-#                     """div.new_table_holder > table.new_table.upcoming > tbody >
-#                     tr[itemprop='subEvent'][itemtype='http://schema.org/Event'] > td"""
-#                 ).get()
-#             )
-#         )
-
-#         yield main_event_upcoming_bout_item
-
-#         # Rest of the card
-#         card_table_rows = response.css(
-#             """div.new_table_holder > table.new_table.upcoming > tbody >
-#             tr[itemprop='subEvent'][itemtype='http://schema.org/Event']"""
-#         )
-#         for row in card_table_rows:
-#             upcoming_bout_item = SherdogUpcomingBoutItem()
-
-#             upcoming_bout_item["EVENT_ID"] = response.url.split("/")[-1]
-#             upcoming_bout_item["EVENT_NAME"] = event_name
-#             upcoming_bout_item["DATE"] = date
-#             upcoming_bout_item["LOCATION"] = location_city
-#             upcoming_bout_item["VENUE"] = venue
-
-#             tds = row.css("td")
-
-#             upcoming_bout_item["BOUT_ORDINAL"] = (
-#                 int(w3lib.html.remove_tags(tds[0].get()).strip()) - 1
-#             )
-
-#             upcoming_bout_item["FIGHTER_1_ID"] = (
-#                 tds[1]
-#                 .css(
-#                     "div.fighter_list.left > div.fighter_result_data > a[itemprop='url']::attr(href)"
-#                 )
-#                 .get()
-#                 .split("/")[-1]
-#             )
-#             fighter_urls.append(
-#                 tds[1]
-#                 .css(
-#                     "div.fighter_list.left > div.fighter_result_data > a[itemprop='url']::attr(href)"
-#                 )
-#                 .get()
-#             )
-
-#             weight_class = tds[2].css("span.weight_class::text")
-#             upcoming_bout_item["WEIGHT_CLASS"] = None
-#             upcoming_bout_item["WEIGHT"] = None
-#             if weight_class:
-#                 weight_class_name = weight_class.get().strip()
-#                 if "lb" not in weight_class_name:
-#                     upcoming_bout_item["WEIGHT_CLASS"] = weight_class_name
-#                     upcoming_bout_item["WEIGHT"] = self.weight_class_map[
-#                         weight_class_name
-#                     ]
-#                 else:
-#                     weight = int(weight_class_name.split(" ")[0].replace("lb", ""))
-#                     upcoming_bout_item["WEIGHT_CLASS"] = "Catchweight"
-#                     upcoming_bout_item["WEIGHT"] = weight
-
-#             upcoming_bout_item["FIGHTER_2_ID"] = (
-#                 tds[3]
-#                 .css(
-#                     "div.fighter_list.right > div.fighter_result_data > a[itemprop='url']::attr(href)"
-#                 )
-#                 .get()
-#                 .split("/")[-1]
-#             )
-#             fighter_urls.append(
-#                 tds[3]
-#                 .css(
-#                     "div.fighter_list.right > div.fighter_result_data > a[itemprop='url']::attr(href)"
-#                 )
-#                 .get()
-#             )
-
-#             yield upcoming_bout_item
-
-#         for fighter_url in fighter_urls:
-#             yield response.follow(
-#                 response.urljoin(fighter_url),
-#                 callback=self.parse_fighter,
-#             )
-
-#     def parse_fighter(self, response):
-#         fighter_item = SherdogFighterItem()
-
-#         fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
-#         fighter_item["FIGHTER_NAME"] = response.css(
-#             "div.fighter-line1 > h1[itemprop='name'] > span.fn::text"
-#         ).get()
-
-#         nick = response.css("div.fighter-line2 > h1[itemprop='name'] > span.nickname")
-#         fighter_item["FIGHTER_NICKNAME"] = nick.css("em::text").get() if nick else None
-#         fighter_item["NATIONALITY"] = response.css(
-#             "div.fighter-nationality > span.item.birthplace > strong[itemprop='nationality']::text"
-#         ).get()
-
-#         dob = response.css(
-#             "div.fighter-data > div.bio-holder > table > tr > td > span[itemprop='birthDate']::text"
-#         ).get()
-#         fighter_item["DATE_OF_BIRTH"] = (
-#             pd.to_datetime(dob).strftime("%Y-%m-%d") if dob else None
-#         )
-
-#         height = response.css(
-#             "div.fighter-data > div.bio-holder > table > tr > td > b[itemprop='height']::text"
-#         ).get()
-#         fighter_item["HEIGHT_INCHES"] = (
-#             convert_height(height.replace("'", "' ")) if height else None
-#         )
-
-#         pro_fight_history_table = response.css(
-#             "div.module.fight_history > div.new_table_holder > table.new_table.fighter"
-#         )[0]
-#         fight_history_rows = pro_fight_history_table.css("tr")
-#         fighter_item["PRO_DEBUT_DATE"] = pd.to_datetime(
-#             fight_history_rows[-1].css("td > span.sub_line::text").get()
-#         ).strftime("%Y-%m-%d")
-
-#         yield fighter_item

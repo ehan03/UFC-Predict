@@ -163,13 +163,6 @@ class UFCStatsResultsSpider(Spider):
         bout_overall_item["BOUT_ORDINAL"] = bout_ordinal
         bout_overall_item["WEIGHT_CLASS"] = weight_class
 
-        if weight_class.startswith("Women's"):
-            bout_overall_item["BOUT_GENDER"] = "F"
-        elif weight_class == "Catch Weight":
-            bout_overall_item["BOUT_GENDER"] = None
-        else:
-            bout_overall_item["BOUT_GENDER"] = "M"
-
         fighter_urls = response.css(
             "a.b-link.b-fight-details__person-link::attr(href)"
         ).getall()
@@ -544,13 +537,6 @@ class UFCStatsUpcomingEventSpider(Spider):
         upcoming_bout_item["LOCATION"] = location
         upcoming_bout_item["BOUT_ORDINAL"] = bout_ordinal
         upcoming_bout_item["WEIGHT_CLASS"] = weight_class
-
-        if weight_class.startswith("Women's"):
-            upcoming_bout_item["BOUT_GENDER"] = "F"
-        elif weight_class == "Catch Weight":
-            upcoming_bout_item["BOUT_GENDER"] = None
-        else:
-            upcoming_bout_item["BOUT_GENDER"] = "M"
 
         upcoming_bout_item["BOUT_LONGNAME"] = [
             x.strip()

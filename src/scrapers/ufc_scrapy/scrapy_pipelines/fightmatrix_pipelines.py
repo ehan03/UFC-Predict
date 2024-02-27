@@ -1,0 +1,251 @@
+# standard library imports
+import os
+import sqlite3
+
+# third party imports
+import pandas as pd
+
+# local imports
+from src.databases.create_statements import (
+    CREATE_FIGHTMATRIX_ELO_HISTORY_TABLE,
+    CREATE_FIGHTMATRIX_FIGHTERS_TABLE,
+    CREATE_FIGHTMATRIX_RANKINGS_TABLE,
+)
+from src.scrapers.ufc_scrapy.items import (
+    FightMatrixBoutELOItem,
+    FightMatrixFighterItem,
+    FightMatrixRankingItem,
+)
+
+
+class FightMatrixFightersPipeline:
+    """
+    Item pipeline for FightMatrix fighters data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize pipeline object
+        """
+
+        self.scrape_type = None
+
+        self.fighters = []
+        self.conn = sqlite3.connect(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "data",
+                "fightmatrix.db",
+            ),
+            detect_types=sqlite3.PARSE_DECLTYPES,
+        )
+        self.cur = self.conn.cursor()
+        self.cur.execute(CREATE_FIGHTMATRIX_FIGHTERS_TABLE)
+
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
+
+        assert spider.name == "fightmatrix_fighters_spider"
+        self.scrape_type = spider.scrape_type
+
+    def process_item(self, item, spider):
+        """
+        Process item objects
+        """
+
+        if isinstance(item, FightMatrixFighterItem):
+            self.fighters.append(dict(item))
+
+        return item
+
+    def close_spider(self, spider):
+        """
+        Close the spider
+        """
+
+        fighters_df = pd.DataFrame(self.fighters)
+
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM FIGHTMATRIX_FIGHTERS")
+        else:
+            fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
+            old_ids = []
+            for fighter_id in fighter_ids:
+                res = self.cur.execute(
+                    "SELECT FIGHTER_ID FROM FIGHTMATRIX_FIGHTERS WHERE FIGHTER_ID = ?;",
+                    (fighter_id,),
+                ).fetchall()
+                if res:
+                    old_ids.append(fighter_id)
+            fighters_df = fighters_df[~fighters_df["FIGHTER_ID"].isin(old_ids)]
+
+        if fighters_df.shape[0]:
+            fighters_df.to_sql(
+                "FIGHTMATRIX_FIGHTERS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
+
+        self.conn.commit()
+        self.conn.close()
+
+
+class FightMatrixFighterEloHistoryPipeline:
+    """
+    Item pipeline for FightMatrix Elo history data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize pipeline object
+        """
+
+        self.elo_history = []
+        self.conn = sqlite3.connect(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "data",
+                "fightmatrix.db",
+            ),
+            detect_types=sqlite3.PARSE_DECLTYPES,
+        )
+        self.cur = self.conn.cursor()
+        self.cur.execute(CREATE_FIGHTMATRIX_ELO_HISTORY_TABLE)
+
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
+
+        assert spider.name == "fightmatrix_fighters_spider"
+        self.scrape_type = spider.scrape_type
+
+    def process_item(self, item, spider):
+        """
+        Process item objects
+        """
+
+        if isinstance(item, FightMatrixBoutELOItem):
+            self.elo_history.append(dict(item))
+
+        return item
+
+    def close_spider(self, spider):
+        """
+        Close the spider
+        """
+
+        elo_history_df = pd.DataFrame(self.elo_history).sort_values(
+            by=["FIGHTER_ID", "DATE"]
+        )
+
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM FIGHTMATRIX_ELO_HISTORY")
+        else:
+            fighter_ids = elo_history_df["FIGHTER_ID"].unique().tolist()
+            for fighter_id in fighter_ids:
+                self.cur.execute(
+                    "DELETE FROM FIGHTMATRIX_ELO_HISTORY WHERE FIGHTER_ID = ?;",
+                    (fighter_id,),
+                )
+
+        elo_history_df.to_sql(
+            "FIGHTMATRIX_ELO_HISTORY",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
+
+        self.conn.commit()
+        self.conn.close()
+
+
+class FightMatrixRankingsPipeline:
+    """
+    Item pipeline for FightMatrix rankings data
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize pipeline object
+        """
+
+        self.scrape_type = None
+
+        self.rankings = []
+        self.conn = sqlite3.connect(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "data",
+                "fightmatrix.db",
+            ),
+            detect_types=sqlite3.PARSE_DECLTYPES,
+        )
+        self.cur = self.conn.cursor()
+        self.cur.execute(CREATE_FIGHTMATRIX_RANKINGS_TABLE)
+
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
+
+        assert spider.name == "fightmatrix_rankings_spider"
+        self.scrape_type = spider.scrape_type
+
+    def process_item(self, item, spider):
+        """
+        Process item objects
+        """
+
+        if isinstance(item, FightMatrixRankingItem):
+            self.rankings.append(dict(item))
+
+        return item
+
+    def close_spider(self, spider):
+        """
+        Close the spider
+        """
+
+        rankings_df = (
+            pd.DataFrame(self.rankings)
+            .drop_duplicates()
+            .sort_values(by=["ISSUE_DATE", "WEIGHT_CLASS", "RANKING"])
+        )
+
+        flag = True
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM FIGHTMATRIX_RANKINGS")
+        elif self.scrape_type == "most_recent":
+            most_recent_issue_date = rankings_df["ISSUE_DATE"].iloc[0]
+            res = self.cur.execute(
+                "SELECT ISSUE_DATE FROM FIGHTMATRIX_RANKINGS WHERE ISSUE_DATE = ?;",
+                (most_recent_issue_date,),
+            ).fetchall()
+            flag = len(res) == 0
+
+        if flag:
+            rankings_df.to_sql(
+                "FIGHTMATRIX_RANKINGS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
+
+        self.conn.commit()
+        self.conn.close()

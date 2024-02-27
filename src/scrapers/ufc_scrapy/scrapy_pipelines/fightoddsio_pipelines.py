@@ -37,7 +37,13 @@ class FightOddsIOFightersPipeline:
         self.fighter_slugs_seen = set()
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "data",
+                "fightoddsio.db",
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -116,7 +122,13 @@ class FightOddsIOCompletedBoutsPipeline:
         self.bout_odds = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "data",
+                "fightoddsio.db",
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -192,7 +204,13 @@ class FightOddsIOUpcomingBoutsPipeline:
         self.upcoming_bouts = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "data",
+                "fightoddsio.db",
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )

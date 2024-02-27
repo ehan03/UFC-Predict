@@ -37,7 +37,6 @@ class UFCStatsBoutOverallItem(Item):
     RED_OUTCOME = Field()
     BLUE_OUTCOME = Field()
     WEIGHT_CLASS = Field()
-    BOUT_GENDER = Field()
     BOUT_LONGNAME = Field()
     BOUT_PERF_BONUS = Field()
     OUTCOME_METHOD = Field()
@@ -116,7 +115,6 @@ class UFCStatsUpcomingBoutItem(Item):
     RED_FIGHTER_ID = Field()
     BLUE_FIGHTER_ID = Field()
     WEIGHT_CLASS = Field()
-    BOUT_GENDER = Field()
     BOUT_LONGNAME = Field()
 
 
@@ -246,22 +244,6 @@ class SherdogFighterBoutHistoryItem(Item):
     TOTAL_TIME_SECONDS = Field()
 
 
-class SherdogUpcomingBoutItem(Item):
-    """
-    Item class for upcoming bout data from Sherdog
-    """
-
-    EVENT_ID = Field()
-    EVENT_NAME = Field()
-    DATE = Field()
-    LOCATION = Field()
-    VENUE = Field()
-    BOUT_ORDINAL = Field()
-    FIGHTER_1_ID = Field()
-    FIGHTER_2_ID = Field()
-    WEIGHT_CLASS = Field()
-
-
 # FightMatrix items
 class FightMatrixFighterItem(Item):
     """
@@ -275,22 +257,13 @@ class FightMatrixFighterItem(Item):
     UFC_DEBUT_DATE = Field()
 
 
-class FightMatrixTempFighterItem(Item):
-    """
-    Item class for temporary fighter data from FightMatrix
-    used for filtering for UFC fighters only in rankings data
-    """
-
-    FIGHTER_ID = Field()
-    UFC_DEBUT_DATE = Field()
-
-
 class FightMatrixBoutELOItem(Item):
     """
     Item class for historical bout data from FightMatrix
     """
 
     FIGHTER_ID = Field()
+    EVENT_ID = Field()
     EVENT_NAME = Field()
     DATE = Field()
     OPPONENT_ID = Field()

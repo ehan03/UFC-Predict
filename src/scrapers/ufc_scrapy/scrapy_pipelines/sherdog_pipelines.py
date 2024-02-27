@@ -13,8 +13,8 @@ from src.databases.create_statements import (
 )
 from src.scrapers.ufc_scrapy.items import (
     SherdogBoutItem,
+    SherdogFighterBoutHistoryItem,
     SherdogFighterItem,
-    SherdogUpcomingBoutItem,
 )
 
 
@@ -33,7 +33,7 @@ class SherdogFightersPipeline:
         self.fighters = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__), "..", "..", "..", "..", "data", "sherdog.db"
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -45,7 +45,7 @@ class SherdogFightersPipeline:
         Open the spider
         """
 
-        assert spider.name in ["sherdog_results_spider", "sherdog_upcoming_spider"]
+        assert spider.name == "sherdog_results_spider"
         if spider.name == "sherdog_results_spider":
             self.scrape_type = spider.scrape_type
 
@@ -107,7 +107,7 @@ class SherdogCompletedBoutsPipeline:
         self.bouts = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__), "..", "..", "..", "..", "data", "sherdog.db"
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -140,12 +140,12 @@ class SherdogCompletedBoutsPipeline:
         bouts_df = pd.DataFrame(self.bouts).sort_values(
             by=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
         )
-        if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM SHERDOG_BOUTS")
 
         flag = True
-        if self.scrape_type == "most_recent":
-            most_recent_event_id = bouts_df["EVENT_ID"].values[0]
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM SHERDOG_BOUTS")
+        elif self.scrape_type == "most_recent":
+            most_recent_event_id = bouts_df["EVENT_ID"].iloc[0]
             res = self.cur.execute(
                 "SELECT EVENT_ID FROM SHERDOG_BOUTS WHERE EVENT_ID = ?;",
                 (most_recent_event_id,),
@@ -177,73 +177,56 @@ class SherdogFighterBoutHistoryPipeline:
         self.bout_history = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "..",
-                "..",
-                "data",
-                "sherdog_bout_history.db",
+                os.path.dirname(__file__), "..", "..", "..", "..", "data", "sherdog.db"
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         self.cur = self.conn.cursor()
         self.cur.execute(CREATE_SHERDOG_BOUT_HISTORY_TABLE)
 
+    def open_spider(self, spider):
+        """
+        Open the spider
+        """
 
-# class SherdogUpcomingBoutsPipeline:
-#     """
-#     Item pipeline for Sherdog upcoming bout data
-#     """
+        assert spider.name == "sherdog_results_spider"
+        self.scrape_type = spider.scrape_type
 
-#     def __init__(self) -> None:
-#         """
-#         Initialize pipeline object
-#         """
+    def process_item(self, item, spider):
+        """
+        Process item objects
+        """
 
-#         self.upcoming_bouts = []
-#         self.conn = sqlite3.connect(
-#             os.path.join(
-#                 os.path.dirname(__file__), "..", "..", "..", "data", "ufc_main.db"
-#             ),
-#             detect_types=sqlite3.PARSE_DECLTYPES,
-#         )
-#         self.cur = self.conn.cursor()
-#         self.cur.execute(CREATE_SHERDOG_UPCOMING_TABLE)
+        if isinstance(item, SherdogFighterBoutHistoryItem):
+            self.bout_history.append(dict(item))
 
-#     def open_spider(self, spider):
-#         """
-#         Open the spider
-#         """
+        return item
 
-#         assert spider.name == "sherdog_upcoming_spider"
+    def close_spider(self, spider):
+        """
+        Insert the scraped data into the database and close the spider
+        """
 
-#     def process_item(self, item, spider):
-#         """
-#         Process item objects
-#         """
+        bout_history_df = pd.DataFrame(self.bout_history).sort_values(
+            by=["FIGHTER_ID", "FIGHTER_BOUT_ORDINAL"]
+        )
 
-#         if isinstance(item, SherdogUpcomingBoutItem):
-#             self.upcoming_bouts.append(dict(item))
+        if self.scrape_type == "all":
+            self.cur.execute("DELETE FROM SHERDOG_BOUT_HISTORY")
+        else:
+            fighter_ids = bout_history_df["FIGHTER_ID"].unique().tolist()
+            for fighter_id in fighter_ids:
+                self.cur.execute(
+                    "DELETE FROM SHERDOG_BOUT_HISTORY WHERE FIGHTER_ID = ?;",
+                    (fighter_id,),
+                )
 
-#         return item
+        bout_history_df.to_sql(
+            "SHERDOG_BOUT_HISTORY",
+            self.conn,
+            if_exists="append",
+            index=False,
+        )
 
-#     def close_spider(self, spider):
-#         """
-#         Insert the scraped data into the database and close the spider
-#         """
-
-#         upcoming_bouts_df = pd.DataFrame(self.upcoming_bouts)
-#         event_id = upcoming_bouts_df["EVENT_ID"].values[0]
-#         self.cur.execute(
-#             "DELETE FROM SHERDOG_UPCOMING WHERE EVENT_ID = ?;", (event_id,)
-#         )
-
-#         upcoming_bouts_df.to_sql(
-#             "SHERDOG_UPCOMING",
-#             self.conn,
-#             if_exists="append",
-#             index=False,
-#         )
-
-#         self.conn.commit()
-#         self.conn.close()
+        self.conn.commit()
+        self.conn.close()

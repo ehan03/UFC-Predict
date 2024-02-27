@@ -35,7 +35,7 @@ class UFCStatsFightersPipeline:
         self.fighters = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufcstats.db"
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -75,7 +75,14 @@ class UFCStatsFightersPipeline:
             old_ids = []
             for fighter_id in fighter_ids:
                 res = self.cur.execute(
-                    "SELECT FIGHTER_ID FROM UFCSTATS_FIGHTERS WHERE FIGHTER_ID = ?;",
+                    """
+                    SELECT 
+                      FIGHTER_ID 
+                    FROM 
+                      UFCSTATS_FIGHTERS 
+                    WHERE 
+                      FIGHTER_ID = ?;
+                    """,
                     (fighter_id,),
                 ).fetchall()
                 if res:
@@ -110,7 +117,7 @@ class UFCStatsCompletedBoutsPipeline:
         self.bouts_by_round = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufcstats.db"
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -181,8 +188,18 @@ class UFCStatsCompletedBoutsPipeline:
         )
 
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM UFCSTATS_BOUTS_OVERALL")
-            self.cur.execute("DELETE FROM UFCSTATS_BOUTS_BY_ROUND")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  UFCSTATS_BOUTS_OVERALL;
+                """
+            )
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  UFCSTATS_BOUTS_BY_ROUND;
+                """
+            )
 
             swap_map_overall = {
                 "RED_FIGHTER_ID": "BLUE_FIGHTER_ID",
@@ -252,47 +269,19 @@ class UFCStatsCompletedBoutsPipeline:
 
         flag = True
         if self.scrape_type == "most_recent":
-            most_recent_event_id = bouts_overall_df["EVENT_ID"].values[0]
+            most_recent_event_id = bouts_overall_df["EVENT_ID"].iloc[0]
             res = self.cur.execute(
-                "SELECT EVENT_ID FROM UFCSTATS_BOUTS_OVERALL WHERE EVENT_ID = ?;",
+                """
+                SELECT 
+                  EVENT_ID 
+                FROM 
+                  UFCSTATS_BOUTS_OVERALL 
+                WHERE 
+                  EVENT_ID = ?;
+                """,
                 (most_recent_event_id,),
             ).fetchall()
             flag = len(res) == 0
-
-            if flag:
-                unknown_gender: pd.DataFrame = bouts_overall_df.loc[
-                    bouts_overall_df["BOUT_GENDER"].isna(),
-                    ["BOUT_ID", "RED_FIGHTER_ID", "BLUE_FIGHTER_ID"],
-                ]
-                for row in unknown_gender.itertuples():
-                    gender = self.cur.execute(
-                        "SELECT DISTINCT BOUT_GENDER FROM UFCSTATS_BOUTS_OVERALL WHERE RED_FIGHTER_ID IN (?, ?) OR BLUE_FIGHTER_ID IN (?, ?);",
-                        (row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID),
-                    ).fetchone()[0]
-                    bouts_overall_df.loc[
-                        bouts_overall_df["BOUT_ID"] == row.BOUT_ID, "BOUT_GENDER"
-                    ] = gender
-        else:
-            unknown_gender: pd.DataFrame = bouts_overall_df.loc[
-                bouts_overall_df["BOUT_GENDER"].isna(),
-                ["BOUT_ID", "RED_FIGHTER_ID", "BLUE_FIGHTER_ID"],
-            ]
-            for row in unknown_gender.itertuples():
-                gender = bouts_overall_df.loc[
-                    bouts_overall_df["BOUT_GENDER"].notna()
-                    & (
-                        bouts_overall_df["RED_FIGHTER_ID"].isin(
-                            [row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID]
-                        )
-                        | bouts_overall_df["BLUE_FIGHTER_ID"].isin(
-                            [row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID]
-                        )
-                    ),
-                    "BOUT_GENDER",
-                ].unique()[0]
-                bouts_overall_df.loc[
-                    bouts_overall_df["BOUT_ID"] == row.BOUT_ID, "BOUT_GENDER"
-                ] = gender
 
         if flag:
             bouts_overall_df.to_sql(
@@ -325,7 +314,7 @@ class UFCStatsUpcomingBoutsPipeline:
         self.upcoming_bouts = []
         self.conn = sqlite3.connect(
             os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufc_main.db"
+                os.path.dirname(__file__), "..", "..", "..", "..", "data", "ufcstats.db"
             ),
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
@@ -357,23 +346,16 @@ class UFCStatsUpcomingBoutsPipeline:
         upcoming_bouts_df = pd.DataFrame(self.upcoming_bouts).sort_values(
             by=["BOUT_ORDINAL"]
         )
-        event_id = upcoming_bouts_df["EVENT_ID"].values[0]
+        event_id = upcoming_bouts_df["EVENT_ID"].iloc[0]
         self.cur.execute(
-            "DELETE FROM UFCSTATS_UPCOMING WHERE EVENT_ID = ?;", (event_id,)
+            """
+            DELETE FROM 
+              UFCSTATS_UPCOMING 
+            WHERE 
+              EVENT_ID = ?;
+            """,
+            (event_id,),
         )
-
-        unknown_gender: pd.DataFrame = upcoming_bouts_df.loc[
-            upcoming_bouts_df["BOUT_GENDER"].isna(),
-            ["BOUT_ID", "RED_FIGHTER_ID", "BLUE_FIGHTER_ID"],
-        ]
-        for row in unknown_gender.itertuples():
-            gender = self.cur.execute(
-                "SELECT DISTINCT BOUT_GENDER FROM UFCSTATS_BOUTS_OVERALL WHERE RED_FIGHTER_ID IN (?, ?) OR BLUE_FIGHTER_ID IN (?, ?);",
-                (row.RED_FIGHTER_ID, row.BLUE_FIGHTER_ID),
-            ).fetchone()[0]
-            upcoming_bouts_df.loc[
-                upcoming_bouts_df["BOUT_ID"] == row.BOUT_ID, "BOUT_GENDER"
-            ] = gender
 
         upcoming_bouts_df.to_sql(
             "UFCSTATS_UPCOMING",
