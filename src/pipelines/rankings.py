@@ -76,6 +76,7 @@ class RankingsPipeline:
             """,
             (first_sunday,),
         ).fetchall()
+        self.conn.close()
 
         if (
             time.strptime(date_today_string, "%Y-%m-%d")
