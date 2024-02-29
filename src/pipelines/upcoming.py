@@ -8,8 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scrapers"))
 from scrapy.crawler import CrawlerProcess
 
 # local imports
-from src.elevation import ElevationFinder
-from src.fighter_matching import FighterMatcher
+# from src.elevation import ElevationFinder
 from src.scrapers.ufc_scrapy.spiders.fightoddsio_spiders import (
     FightOddsIOUpcomingEventSpider,
 )
@@ -31,21 +30,13 @@ class UpcomingEventPipeline:
         process.crawl(FightOddsIOUpcomingEventSpider)
         process.start()
 
-    def update_ufcstats_fightoddsio_linkage(self):
-        """
-        Update linkage between UFCStats and FightOdds.io
-        """
+    # def update_location_elevations(self):
+    #     """
+    #     Get elevations for any new unseen event locations
+    #     """
 
-        fighter_matcher = FighterMatcher(matching_type="upcoming")
-        fighter_matcher()
-
-    def update_location_elevations(self):
-        """
-        Get elevations for any new unseen event locations
-        """
-
-        elevation_finder = ElevationFinder(location_type="upcoming")
-        elevation_finder()
+    #     elevation_finder = ElevationFinder(location_type="upcoming")
+    #     elevation_finder()
 
     def get_predictions(self):
         pass
@@ -59,5 +50,4 @@ class UpcomingEventPipeline:
         """
 
         self.get_upcoming_event()
-        # self.update_ufcstats_fightoddsio_linkage()
         # self.update_location_elevations()
