@@ -25,8 +25,9 @@ class SherdogResultsSpider(Spider):
     allowed_domains = ["sherdog.com"]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 8,
-        "CONCURRENT_REQUESTS": 8,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 4,
+        "CONCURRENT_REQUESTS": 4,
+        "COOKIES_ENABLED": False,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -382,7 +383,7 @@ class SherdogResultsSpider(Spider):
 
             outcome_method = tds[3].css("b::text").get()
             fighter_bout_history_item["OUTCOME_METHOD"] = (
-                outcome_method if outcome_method else None
+                outcome_method if outcome_method and outcome_method != "N/A" else None
             )
 
             end_round = int(tds[4].css("::text").get().strip())

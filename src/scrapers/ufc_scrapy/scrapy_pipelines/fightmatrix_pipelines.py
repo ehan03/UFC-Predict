@@ -51,7 +51,7 @@ class FightMatrixFightersPipeline:
         Open the spider
         """
 
-        assert spider.name == "fightmatrix_fighters_spider"
+        assert spider.name == "fightmatrix_results_spider"
         self.scrape_type = spider.scrape_type
 
     def process_item(self, item, spider):
@@ -72,13 +72,25 @@ class FightMatrixFightersPipeline:
         fighters_df = pd.DataFrame(self.fighters)
 
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM FIGHTMATRIX_FIGHTERS")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  FIGHTMATRIX_FIGHTERS;
+                """
+            )
         else:
             fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
             old_ids = []
             for fighter_id in fighter_ids:
                 res = self.cur.execute(
-                    "SELECT FIGHTER_ID FROM FIGHTMATRIX_FIGHTERS WHERE FIGHTER_ID = ?;",
+                    """
+                    SELECT 
+                      FIGHTER_ID 
+                    FROM 
+                      FIGHTMATRIX_FIGHTERS 
+                    WHERE 
+                      FIGHTER_ID = ?;
+                    """,
                     (fighter_id,),
                 ).fetchall()
                 if res:
@@ -128,7 +140,7 @@ class FightMatrixFighterEloHistoryPipeline:
         Open the spider
         """
 
-        assert spider.name == "fightmatrix_fighters_spider"
+        assert spider.name == "fightmatrix_results_spider"
         self.scrape_type = spider.scrape_type
 
     def process_item(self, item, spider):
@@ -151,12 +163,22 @@ class FightMatrixFighterEloHistoryPipeline:
         )
 
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM FIGHTMATRIX_ELO_HISTORY")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  FIGHTMATRIX_ELO_HISTORY;
+                """
+            )
         else:
             fighter_ids = elo_history_df["FIGHTER_ID"].unique().tolist()
             for fighter_id in fighter_ids:
                 self.cur.execute(
-                    "DELETE FROM FIGHTMATRIX_ELO_HISTORY WHERE FIGHTER_ID = ?;",
+                    """
+                    DELETE FROM 
+                      FIGHTMATRIX_ELO_HISTORY 
+                    WHERE 
+                      FIGHTER_ID = ?;
+                    """,
                     (fighter_id,),
                 )
 
@@ -227,20 +249,53 @@ class FightMatrixRankingsPipeline:
             .drop_duplicates()
             .sort_values(by=["ISSUE_DATE", "WEIGHT_CLASS", "RANKING"])
         )
+        fighters_df = pd.read_sql(
+            """
+            SELECT
+              FIGHTER_ID,
+              UFC_DEBUT_DATE
+            FROM
+              FIGHTMATRIX_FIGHTERS;
+            """,
+            self.conn,
+        )
 
         flag = True
         if self.scrape_type == "all":
-            self.cur.execute("DELETE FROM FIGHTMATRIX_RANKINGS")
+            self.cur.execute(
+                """
+                DELETE FROM 
+                  FIGHTMATRIX_RANKINGS;
+                """
+            )
         elif self.scrape_type == "most_recent":
             most_recent_issue_date = rankings_df["ISSUE_DATE"].iloc[0]
             res = self.cur.execute(
-                "SELECT ISSUE_DATE FROM FIGHTMATRIX_RANKINGS WHERE ISSUE_DATE = ?;",
+                """
+                SELECT 
+                  ISSUE_DATE 
+                FROM 
+                  FIGHTMATRIX_RANKINGS 
+                WHERE 
+                  ISSUE_DATE = ?;
+                """,
                 (most_recent_issue_date,),
             ).fetchall()
             flag = len(res) == 0
 
         if flag:
-            rankings_df.to_sql(
+            rankings_df = rankings_df.merge(
+                fighters_df,
+                how="inner",
+                on="FIGHTER_ID",
+            )
+
+            rankings_df_filtered = rankings_df.loc[
+                rankings_df["ISSUE_DATE"] >= rankings_df["UFC_DEBUT_DATE"]
+            ]
+            rankings_df_filtered = rankings_df_filtered.drop(columns=["UFC_DEBUT_DATE"])
+
+            rankings_df_filtered.to_sql(
                 "FIGHTMATRIX_RANKINGS",
                 self.conn,
                 if_exists="append",

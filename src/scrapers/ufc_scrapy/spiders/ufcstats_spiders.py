@@ -35,6 +35,7 @@ class UFCStatsResultsSpider(Spider):
         "ROBOTSTXT_OBEY": False,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 10,
         "CONCURRENT_REQUESTS": 10,
+        "COOKIES_ENABLED": False,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -45,7 +46,7 @@ class UFCStatsResultsSpider(Spider):
         "DEPTH_PRIORITY": 1,
         "SCHEDULER_DISK_QUEUE": "scrapy.squeues.PickleFifoDiskQueue",
         "SCHEDULER_MEMORY_QUEUE": "scrapy.squeues.FifoMemoryQueue",
-        "RETRY_TIMES": 1,
+        "RETRY_TIMES": 0,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             "ufc_scrapy.scrapy_pipelines.ufcstats_pipelines.UFCStatsFightersPipeline": 100,
@@ -400,8 +401,7 @@ class UFCStatsUpcomingEventSpider(Spider):
         "RETRY_TIMES": 1,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.pipelines.UFCStatsFightersPipeline": 100,
-            "ufc_scrapy.pipelines.UFCStatsUpcomingBoutsPipeline": 200,
+            "ufc_scrapy.pipelines.UFCStatsUpcomingBoutsPipeline": 100,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -485,45 +485,6 @@ class UFCStatsUpcomingEventSpider(Spider):
                     "weight_class": weight_class,
                 },
             )
-
-        fighter_urls = response.css(
-            """td[style='width:100px'].b-fight-details__table-col.l-page_align_left >
-            p.b-fight-details__table-text >
-            a.b-link.b-link_style_black::attr(href)
-            """
-        ).getall()
-
-        yield from response.follow_all(fighter_urls, self.parse_fighter)
-
-    def parse_fighter(self, response):
-        fighter_item = UFCStatsFighterItem()
-
-        fighter_item["FIGHTER_ID"] = response.url.split("/")[-1]
-        fighter_item["FIGHTER_NAME"] = (
-            response.css("span.b-content__title-highlight::text").get().strip()
-        )
-        nick = response.css("p.b-content__Nickname::text").get().strip()
-        fighter_item["FIGHTER_NICKNAME"] = nick if nick else None
-
-        info = [
-            x.strip()
-            for i, x in enumerate(
-                response.css(
-                    "li.b-list__box-list-item.b-list__box-list-item_type_block::text"
-                ).getall()
-            )
-            if (i % 2 == 1 and i != 19)
-        ]
-        fighter_item["HEIGHT_INCHES"] = convert_height(info[0])
-        fighter_item["REACH_INCHES"] = (
-            int(info[2].replace('"', "")) if info[2] != "--" else None
-        )
-        fighter_item["STANCE"] = info[3] if info[3] else None
-        fighter_item["DATE_OF_BIRTH"] = (
-            pd.to_datetime(info[4]).strftime("%Y-%m-%d") if info[4] != "--" else None
-        )
-
-        yield fighter_item
 
     def parse_upcoming_bout(
         self, response, event_id, event_name, date, location, bout_ordinal, weight_class

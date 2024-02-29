@@ -14,13 +14,13 @@ from src.scrapers.ufc_scrapy.items import (
 )
 
 
-class FightMatrixFightersSpider(Spider):
+class FightMatrixResultsSpider(Spider):
     """
     Spider for scraping FightMatrix fighter profiles and
     ELO rating history
     """
 
-    name = "fightmatrix_fighters_spider"
+    name = "fightmatrix_results_spider"
     allowed_domains = ["fightmatrix.com"]
     start_urls = ["https://www.fightmatrix.com/past-events-search/?org=UFC"]
     custom_settings = {
@@ -186,7 +186,11 @@ class FightMatrixFightersSpider(Spider):
             outcome_details = [x.strip() for x in tds[3].css("::text").getall()]
             assert len(outcome_details) == 2
 
-            bout_elo_item["OUTCOME_METHOD"] = outcome_details[0]
+            bout_elo_item["OUTCOME_METHOD"] = (
+                outcome_details[0]
+                if outcome_details[0] and outcome_details[0] != "N/A"
+                else None
+            )
             end_round = int(outcome_details[1].split(" ")[-1])
             bout_elo_item["END_ROUND"] = end_round if end_round != 0 else None
 
@@ -242,7 +246,7 @@ class FightMatrixRankingsSpider(Spider):
         "RETRY_TIMES": 0,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixRankingsPipeline": 100,
+            # "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixRankingsPipeline": 100,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
         "DOWNLOAD_DELAY": 1.5,

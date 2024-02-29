@@ -32,8 +32,9 @@ class FightOddsIOResultsSpider(Spider):
     allowed_domains = ["fightodds.io"]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 8,
-        "CONCURRENT_REQUESTS": 8,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 4,
+        "CONCURRENT_REQUESTS": 4,
+        "COOKIES_ENABLED": False,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -434,8 +435,9 @@ class FightOddsIOUpcomingEventSpider(Spider):
     allowed_domains = ["fightodds.io"]
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 8,
-        "CONCURRENT_REQUESTS": 8,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 4,
+        "CONCURRENT_REQUESTS": 4,
+        "COOKIES_ENABLED": False,
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
             "scrapy_user_agents.middlewares.RandomUserAgentMiddleware": 400,
@@ -450,8 +452,7 @@ class FightOddsIOUpcomingEventSpider(Spider):
         "LOG_LEVEL": "INFO",
         "LOG_FORMATTER": "ufc_scrapy.logformatter.PoliteLogFormatter",
         "ITEM_PIPELINES": {
-            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOFightersPipeline": 100,
-            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOUpcomingBoutsPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.fightoddsio_pipelines.FightOddsIOUpcomingBoutsPipeline": 100,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
     }
@@ -552,65 +553,3 @@ class FightOddsIOUpcomingEventSpider(Spider):
             upcoming_bout_item["FIGHTER_2_ODDS_DRAFTKINGS"] = f2_odds_draftkings
 
             yield upcoming_bout_item
-
-            fighter_slugs = [f1_slug, f2_slug]
-            for fighter_slug in fighter_slugs:
-                payload_fighter = json.dumps(
-                    {
-                        "query": FIGHTERS_GQL_QUERY,
-                        "variables": {"fighterSlug": fighter_slug},
-                    }
-                )
-
-                yield Request(
-                    url=self.gql_url,
-                    method="POST",
-                    headers=self.headers,
-                    body=payload_fighter,
-                    callback=self.parse_fighter,
-                    dont_filter=True,
-                    cb_kwargs={"fighter_slug": fighter_slug},
-                )
-
-    def parse_fighter(self, response, fighter_slug):
-        json_resp = json.loads(response.body)
-        fighter_data = json_resp["data"]["fighter"]
-
-        fighter_item = FightOddsIOFighterItem()
-
-        fighter_item["FIGHTER_SLUG"] = fighter_slug
-        fighter_item["FIGHTER_NAME"] = (
-            f"{fighter_data['firstName']} {fighter_data['lastName']}".strip()
-        )
-        fighter_item["FIGHTER_NICKNAME"] = (
-            fighter_data["nickName"] if fighter_data["nickName"] else None
-        )
-        fighter_item["HEIGHT_CENTIMETERS"] = (
-            float(fighter_data["height"])
-            if fighter_data["height"] and fighter_data["height"] != "0.0"
-            else None
-        )
-        fighter_item["REACH_INCHES"] = (
-            float(fighter_data["reach"])
-            if fighter_data["reach"] and fighter_data["reach"] != "0.0"
-            else None
-        )
-        fighter_item["LEG_REACH_INCHES"] = (
-            float(fighter_data["legReach"])
-            if fighter_data["legReach"] and fighter_data["legReach"] != "0.0"
-            else None
-        )
-        fighter_item["FIGHTING_STYLE"] = (
-            fighter_data["fightingStyle"] if fighter_data["fightingStyle"] else None
-        )
-        fighter_item["STANCE"] = (
-            fighter_data["stance"] if fighter_data["stance"] else None
-        )
-        # 1970-01-01 used as placeholder for missing DOB
-        fighter_item["DATE_OF_BIRTH"] = (
-            fighter_data["birthDate"]
-            if fighter_data["birthDate"] and fighter_data["birthDate"] != "1970-01-01"
-            else None
-        )
-
-        yield fighter_item
