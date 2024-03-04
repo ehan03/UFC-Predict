@@ -246,7 +246,7 @@ class FightMatrixRankingsSpider(Spider):
         "RETRY_TIMES": 0,
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
-            # "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixRankingsPipeline": 100,
+            "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixRankingsPipeline": 100,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
         "DOWNLOAD_DELAY": 1.5,

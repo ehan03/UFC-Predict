@@ -3,7 +3,7 @@ name: Results Pipeline
 on:
     workflow_dispatch:
     schedule:
-        - cron: "0 12 * * MON"
+        - cron: "0 17 * * MON"
 
 jobs:
     build:

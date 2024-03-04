@@ -247,7 +247,7 @@ class FightMatrixRankingsPipeline:
         rankings_df = (
             pd.DataFrame(self.rankings)
             .drop_duplicates()
-            .sort_values(by=["ISSUE_DATE", "WEIGHT_CLASS", "RANKING"])
+            .sort_values(by=["ISSUE_DATE", "WEIGHT_CLASS", "RANK"])
         )
         fighters_df = pd.read_sql(
             """
@@ -291,7 +291,8 @@ class FightMatrixRankingsPipeline:
             )
 
             rankings_df_filtered = rankings_df.loc[
-                rankings_df["ISSUE_DATE"] >= rankings_df["UFC_DEBUT_DATE"]
+                pd.to_datetime(rankings_df["ISSUE_DATE"])
+                >= pd.to_datetime(rankings_df["UFC_DEBUT_DATE"])
             ]
             rankings_df_filtered = rankings_df_filtered.drop(columns=["UFC_DEBUT_DATE"])
 
