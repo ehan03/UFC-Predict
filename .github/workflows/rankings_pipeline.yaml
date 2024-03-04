@@ -2,10 +2,10 @@ name: Rankings Pipeline
 
 on:
     workflow_dispatch:
-    workflow_run:
-        workflows: ["Results Pipeline"]
-        types:
-            - completed
+    # workflow_run:
+    #     workflows: ["Results Pipeline"]
+    #     types:
+    #         - completed
 
 jobs:
     build:
