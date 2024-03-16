@@ -124,7 +124,7 @@ class FightOddsIOFighterItem(Item):
     Item class for fighter data from FightOdds.io
     """
 
-    FIGHTER_SLUG = Field()
+    FIGHTER_ID = Field()
     FIGHTER_NAME = Field()
     FIGHTER_NICKNAME = Field()
     HEIGHT_CENTIMETERS = Field()
@@ -150,9 +150,9 @@ class FightOddsIOBoutItem(Item):
     BOUT_CARD_TYPE = Field()
     WEIGHT_CLASS = Field()
     WEIGHT = Field()
-    FIGHTER_1_SLUG = Field()
-    FIGHTER_2_SLUG = Field()
-    WINNER_SLUG = Field()
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    WINNER_ID = Field()
     OUTCOME_METHOD_1 = Field()
     OUTCOME_METHOD_2 = Field()
     END_ROUND = Field()
@@ -180,8 +180,8 @@ class FightOddsIOUpcomingBoutItem(Item):
     DATE = Field()
     LOCATION = Field()
     VENUE = Field()
-    FIGHTER_1_SLUG = Field()
-    FIGHTER_2_SLUG = Field()
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
     FIGHTER_1_ODDS_DRAFTKINGS = Field()
     FIGHTER_2_ODDS_DRAFTKINGS = Field()
 
@@ -257,12 +257,13 @@ class FightMatrixFighterItem(Item):
     UFC_DEBUT_DATE = Field()
 
 
-class FightMatrixBoutELOItem(Item):
+class FightMatrixBoutEloItem(Item):
     """
     Item class for historical bout data from FightMatrix
     """
 
     FIGHTER_ID = Field()
+    FIGHTER_BOUT_ORDINAL = Field()
     EVENT_ID = Field()
     EVENT_NAME = Field()
     DATE = Field()
@@ -283,6 +284,15 @@ class FightMatrixBoutELOItem(Item):
     OUTCOME = Field()
     OUTCOME_METHOD = Field()
     END_ROUND = Field()
+
+
+class FightMatrixCutoffEventItem(Item):
+    """
+    Item class for events whose names are cutoff
+    """
+
+    EVENT_ID = Field()
+    EVENT_NAME = Field()
 
 
 class FightMatrixRankingItem(Item):

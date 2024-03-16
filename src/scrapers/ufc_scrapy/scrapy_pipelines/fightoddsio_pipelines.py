@@ -61,10 +61,10 @@ class FightOddsIOFightersPipeline:
     def process_item(self, item, spider):
         if isinstance(item, FightOddsIOFighterItem):
             adapter = ItemAdapter(item)
-            if adapter["FIGHTER_SLUG"] in self.fighter_slugs_seen:
+            if adapter["FIGHTER_ID"] in self.fighter_slugs_seen:
                 raise DropItem("Duplicate fighter")
             else:
-                self.fighter_slugs_seen.add(adapter["FIGHTER_SLUG"])
+                self.fighter_slugs_seen.add(adapter["FIGHTER_ID"])
                 self.fighters.append(dict(item))
 
         return item
@@ -84,23 +84,23 @@ class FightOddsIOFightersPipeline:
                 """
             )
         else:
-            fighter_slugs = fighters_df["FIGHTER_SLUG"].values.tolist()
+            fighter_ids = fighters_df["FIGHTER_ID"].values.tolist()
             old_slugs = []
-            for fighter_slug in fighter_slugs:
+            for fighter_id in fighter_ids:
                 res = self.cur.execute(
                     """
                     SELECT 
-                      FIGHTER_SLUG 
+                      FIGHTER_ID
                     FROM 
                       FIGHTODDSIO_FIGHTERS 
                     WHERE 
-                      FIGHTER_SLUG = ?;
+                      FIGHTER_ID = ?;
                     """,
-                    (fighter_slug,),
+                    (fighter_id,),
                 ).fetchall()
                 if res:
-                    old_slugs.append(fighter_slug)
-            fighters_df = fighters_df[~fighters_df["FIGHTER_SLUG"].isin(old_slugs)]
+                    old_slugs.append(fighter_id)
+            fighters_df = fighters_df[~fighters_df["FIGHTER_ID"].isin(old_slugs)]
 
         if fighters_df.shape[0]:
             fighters_df.to_sql(

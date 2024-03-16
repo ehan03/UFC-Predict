@@ -8,7 +8,8 @@ from scrapy.spiders import Spider
 
 # local imports
 from src.scrapers.ufc_scrapy.items import (
-    FightMatrixBoutELOItem,
+    FightMatrixBoutEloItem,
+    FightMatrixCutoffEventItem,
     FightMatrixFighterItem,
     FightMatrixRankingItem,
 )
@@ -17,7 +18,7 @@ from src.scrapers.ufc_scrapy.items import (
 class FightMatrixResultsSpider(Spider):
     """
     Spider for scraping FightMatrix fighter profiles and
-    ELO rating history
+    Elo rating history
     """
 
     name = "fightmatrix_results_spider"
@@ -110,9 +111,7 @@ class FightMatrixResultsSpider(Spider):
         fighter_item["FIGHTER_NAME"] = (
             response.css("div.posttitle > h1 > a::text").get().strip()
         )
-        fighter_item["FIGHTER_ID"] = response.url.replace(
-            "https://www.fightmatrix.com/fighter-profile/", ""
-        )
+        fighter_item["FIGHTER_ID"] = int(response.url.split("/")[-2])
 
         fighter_links = response.css(
             "td.tdRankHead > div.leftCol *> a::attr(href)"
@@ -120,7 +119,7 @@ class FightMatrixResultsSpider(Spider):
         sherdog_fighter_id = None
         for link in fighter_links:
             if "sherdog" in link:
-                sherdog_fighter_id = link.split("/")[-1].strip()
+                sherdog_fighter_id = int(link.split("/")[-1].strip().split("-")[-1])
                 break
         assert sherdog_fighter_id is not None
 
@@ -157,31 +156,40 @@ class FightMatrixResultsSpider(Spider):
         # ELO rating history
         bout_history_table = response.css("table.tblRank[style='width:845px']")
         rows = bout_history_table.css("tr[onmouseout='UnTip()']")
-        for row in rows:
-            bout_elo_item = FightMatrixBoutELOItem()
+        cutoff_event_urls = []
+        for bout_ordinal, row in enumerate(reversed(rows)):
+            bout_elo_item = FightMatrixBoutEloItem()
 
-            bout_elo_item["FIGHTER_ID"] = response.url.replace(
-                "https://www.fightmatrix.com/fighter-profile/", ""
-            )
+            bout_elo_item["FIGHTER_ID"] = int(response.url.split("/")[-2])
+            bout_elo_item["FIGHTER_BOUT_ORDINAL"] = bout_ordinal
 
             tds = row.css("td")
             bout_elo_item["OUTCOME"] = tds[0].css("b::text").get().strip()
-            bout_elo_item["OPPONENT_ID"] = (
-                tds[1]
-                .css("strong > a.sherLink::attr(href)")
-                .get()
-                .replace("/fighter-profile/", "")
+            bout_elo_item["OPPONENT_ID"] = int(
+                tds[1].css("strong > a.sherLink::attr(href)").get().split("/")[-2]
             )
             bout_elo_item["OPPONENT_NAME"] = (
                 tds[1].css("strong > a.sherLink::text").get().strip()
             )
-            bout_elo_item["EVENT_NAME"] = tds[2].css("strong > a::text").get().strip()
-            bout_elo_item["EVENT_ID"] = (
-                tds[2].css("strong > a::attr(href)").get().replace("/event/", "")
+
+            event_name = tds[2].css("strong > a::text").get().strip()
+            bout_elo_item["EVENT_NAME"] = event_name
+            bout_elo_item["EVENT_ID"] = int(
+                tds[2].css("strong > a::attr(href)").get().split("/")[-2]
             )
             bout_elo_item["DATE"] = pd.to_datetime(
                 tds[2].css("em::text").get().strip()
             ).strftime("%Y-%m-%d")
+
+            # For whatever reason, FightMatrix truncates long event names
+            if event_name.endswith("..."):
+                cutoff_event_urls.append(
+                    tds[2]
+                    .css("strong > a::attr(href)")
+                    .get()
+                    .strip()
+                    .replace("%2F", "%252F")
+                )
 
             outcome_details = [x.strip() for x in tds[3].css("::text").getall()]
             assert len(outcome_details) == 2
@@ -216,6 +224,16 @@ class FightMatrixResultsSpider(Spider):
             bout_elo_item["OPPONENT_GLICKO1_POST"] = int(elo_string_split[17])
 
             yield bout_elo_item
+
+        yield from response.follow_all(cutoff_event_urls, self.parse_cutoff_event)
+
+    def parse_cutoff_event(self, response):
+        event_item = FightMatrixCutoffEventItem()
+
+        event_item["EVENT_ID"] = int(response.url.split("/")[-2])
+        event_item["EVENT_NAME"] = response.css("H1 > a::text").get().strip()
+
+        yield event_item
 
 
 class FightMatrixRankingsSpider(Spider):
@@ -327,6 +345,7 @@ class FightMatrixRankingsSpider(Spider):
                 # Edge case for missing fighter
                 continue
 
+            fighter_id = int(fighter_id.split("/")[-2])
             ranking_item["FIGHTER_ID"] = fighter_id
             ranking_item["POINTS"] = int(cells[3].css("div.tdBar::text").get().strip())
 
