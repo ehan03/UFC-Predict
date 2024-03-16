@@ -153,25 +153,29 @@ class SherdogResultsSpider(Spider):
         )
 
         if main_event:
-            main_event_bout_item["EVENT_ID"] = response.url.split("/")[-1]
+            main_event_bout_item["EVENT_ID"] = int(
+                response.url.split("/")[-1].split("-")[-1]
+            )
             main_event_bout_item["EVENT_NAME"] = event_name
             main_event_bout_item["DATE"] = date
             main_event_bout_item["LOCATION"] = location_city
             main_event_bout_item["VENUE"] = venue
-            main_event_bout_item["FIGHTER_1_ID"] = (
+            main_event_bout_item["FIGHTER_1_ID"] = int(
                 main_event.css("div.fighter.left_side > a[itemprop='url']::attr(href)")
                 .get()
                 .split("/")[-1]
+                .split("-")[-1]
             )
             fighter_urls.append(
                 main_event.css(
                     "div.fighter.left_side > a[itemprop='url']::attr(href)"
                 ).get()
             )
-            main_event_bout_item["FIGHTER_2_ID"] = (
+            main_event_bout_item["FIGHTER_2_ID"] = int(
                 main_event.css("div.fighter.right_side > a[itemprop='url']::attr(href)")
                 .get()
                 .split("/")[-1]
+                .split("-")[-1]
             )
             fighter_urls.append(
                 main_event.css(
@@ -234,7 +238,7 @@ class SherdogResultsSpider(Spider):
             for row in card_table_rows:
                 bout_item = SherdogBoutItem()
 
-                bout_item["EVENT_ID"] = response.url.split("/")[-1]
+                bout_item["EVENT_ID"] = int(response.url.split("/")[-1].split("-")[-1])
                 bout_item["EVENT_NAME"] = event_name
                 bout_item["DATE"] = date
                 bout_item["LOCATION"] = location_city
@@ -246,13 +250,14 @@ class SherdogResultsSpider(Spider):
                     int(w3lib.html.remove_tags(tds[0].get()).strip()) - 1
                 )
 
-                bout_item["FIGHTER_1_ID"] = (
+                bout_item["FIGHTER_1_ID"] = int(
                     tds[1]
                     .css(
                         "div.fighter_list.left > div.fighter_result_data > a[itemprop='url']::attr(href)"
                     )
                     .get()
                     .split("/")[-1]
+                    .split("-")[-1]
                 )
                 bout_item["FIGHTER_1_OUTCOME"] = self.outcome_map[
                     tds[1].css("span.final_result::text").get().lower()
@@ -278,13 +283,14 @@ class SherdogResultsSpider(Spider):
                         bout_item["WEIGHT_CLASS"] = "Catchweight"
                         bout_item["WEIGHT"] = weight
 
-                bout_item["FIGHTER_2_ID"] = (
+                bout_item["FIGHTER_2_ID"] = int(
                     tds[3]
                     .css(
                         "div.fighter_list.right > div.fighter_result_data > a[itemprop='url']::attr(href)"
                     )
                     .get()
                     .split("/")[-1]
+                    .split("-")[-1]
                 )
                 bout_item["FIGHTER_2_OUTCOME"] = self.outcome_map[
                     tds[3].css("span.final_result::text").get().lower()
@@ -315,7 +321,7 @@ class SherdogResultsSpider(Spider):
     def parse_fighter(self, response):
         fighter_item = SherdogFighterItem()
 
-        fighter_id = response.url.split("/")[-1]
+        fighter_id = int(response.url.split("/")[-1].split("-")[-1])
         fighter_item["FIGHTER_ID"] = fighter_id
 
         fighter_name = response.css(
@@ -368,11 +374,18 @@ class SherdogResultsSpider(Spider):
                 tds[0].css("span.final_result::text").get().lower()
             ]
             fighter_bout_history_item["OPPONENT_ID"] = (
-                tds[1].css("a::attr(href)").get().split("/")[-1]
+                int(tds[1].css("a::attr(href)").get().split("/")[-1].split("-")[-1])
+                if tds[1].css("a::attr(href)").get().split("/")[-1].split("-")[-1]
+                != "javascript:void();"
+                else None
             )
-            fighter_bout_history_item["OPPONENT_NAME"] = tds[1].css("a::text").get()
-            fighter_bout_history_item["EVENT_ID"] = (
-                tds[2].css("a::attr(href)").get().split("/")[-1]
+            fighter_bout_history_item["OPPONENT_NAME"] = (
+                tds[1].css("a::text").get()
+                if tds[1].css("a::text").get() != "Unknown Fighter"
+                else None
+            )
+            fighter_bout_history_item["EVENT_ID"] = int(
+                tds[2].css("a::attr(href)").get().split("/")[-1].split("-")[-1]
             )
             fighter_bout_history_item["EVENT_NAME"] = w3lib.html.remove_tags(
                 tds[2].css("a").get()

@@ -12,7 +12,8 @@ from src.databases.create_statements import (
     CREATE_FIGHTMATRIX_RANKINGS_TABLE,
 )
 from src.scrapers.ufc_scrapy.items import (
-    FightMatrixBoutELOItem,
+    FightMatrixBoutEloItem,
+    FightMatrixCutoffEventItem,
     FightMatrixFighterItem,
     FightMatrixRankingItem,
 )
@@ -120,6 +121,7 @@ class FightMatrixFighterEloHistoryPipeline:
         """
 
         self.elo_history = []
+        self.cutoff_events = {}
         self.conn = sqlite3.connect(
             os.path.join(
                 os.path.dirname(__file__),
@@ -148,8 +150,10 @@ class FightMatrixFighterEloHistoryPipeline:
         Process item objects
         """
 
-        if isinstance(item, FightMatrixBoutELOItem):
+        if isinstance(item, FightMatrixBoutEloItem):
             self.elo_history.append(dict(item))
+        elif isinstance(item, FightMatrixCutoffEventItem):
+            self.cutoff_events[item["EVENT_ID"]] = item["EVENT_NAME"]
 
         return item
 
@@ -159,8 +163,12 @@ class FightMatrixFighterEloHistoryPipeline:
         """
 
         elo_history_df = pd.DataFrame(self.elo_history).sort_values(
-            by=["FIGHTER_ID", "DATE"]
+            by=["FIGHTER_ID", "FIGHTER_BOUT_ORDINAL"]
         )
+
+        elo_history_df.loc[
+            elo_history_df["EVENT_ID"].isin(self.cutoff_events.keys()), "EVENT_NAME"
+        ] = elo_history_df["EVENT_ID"].map(self.cutoff_events)
 
         if self.scrape_type == "all":
             self.cur.execute(

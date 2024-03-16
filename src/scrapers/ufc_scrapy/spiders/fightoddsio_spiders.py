@@ -244,8 +244,8 @@ class FightOddsIOResultsSpider(Spider):
 
             f1_slug = bout["node"]["fighter1"]["slug"]
             f2_slug = bout["node"]["fighter2"]["slug"]
-            bout_item["FIGHTER_1_SLUG"] = f1_slug
-            bout_item["FIGHTER_2_SLUG"] = f2_slug
+            bout_item["FIGHTER_1_ID"] = int(f1_slug.split("-")[-1])
+            bout_item["FIGHTER_2_ID"] = int(f2_slug.split("-")[-1])
             bout_item["WEIGHT_CLASS"] = (
                 bout["node"]["weightClass"]["weightClass"]
                 if bout["node"]["weightClass"]
@@ -256,8 +256,8 @@ class FightOddsIOResultsSpider(Spider):
                 if bout["node"]["weightClass"]
                 else None
             )
-            bout_item["WINNER_SLUG"] = (
-                bout["node"]["fighterWinner"]["slug"]
+            bout_item["WINNER_ID"] = (
+                int(bout["node"]["fighterWinner"]["slug"].split("-")[-1])
                 if bout["node"]["fighterWinner"]
                 else None
             )
@@ -333,7 +333,7 @@ class FightOddsIOResultsSpider(Spider):
 
         fighter_item = FightOddsIOFighterItem()
 
-        fighter_item["FIGHTER_SLUG"] = fighter_slug
+        fighter_item["FIGHTER_ID"] = int(fighter_slug.split("-")[-1])
         fighter_item["FIGHTER_NAME"] = (
             f"{fighter_data['firstName']} {fighter_data['lastName']}".strip()
         )
@@ -538,8 +538,8 @@ class FightOddsIOUpcomingEventSpider(Spider):
 
             f1_slug = bout["node"]["fighter1"]["slug"]
             f2_slug = bout["node"]["fighter2"]["slug"]
-            upcoming_bout_item["FIGHTER_1_SLUG"] = f1_slug
-            upcoming_bout_item["FIGHTER_2_SLUG"] = f2_slug
+            upcoming_bout_item["FIGHTER_1_ID"] = int(f1_slug.split("-")[-1])
+            upcoming_bout_item["FIGHTER_2_ID"] = int(f2_slug.split("-")[-1])
 
             f1_odds_draftkings = f2_odds_draftkings = None
             for offer in bout["node"]["straightOffers"]["edges"]:
