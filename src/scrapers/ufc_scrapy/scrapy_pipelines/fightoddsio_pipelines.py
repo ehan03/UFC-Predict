@@ -182,7 +182,7 @@ class FightOddsIOCompletedBoutsPipeline:
                 """
             )
         else:
-            most_recent_event_slug = bouts_df["EVENT_SLUG"].values[0]
+            most_recent_event_slug = bouts_df["EVENT_SLUG"].iloc[0]
             res = self.cur.execute(
                 """
                 SELECT 

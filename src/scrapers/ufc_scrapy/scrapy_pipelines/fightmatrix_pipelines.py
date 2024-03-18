@@ -171,7 +171,7 @@ class FightMatrixBoutsPipeline:
                 """
             )
         else:
-            most_recent_event_id = bouts_df["EVENT_ID"].iloc[0]
+            most_recent_event_id = int(bouts_df["EVENT_ID"].iloc[0])
             res = self.cur.execute(
                 """
                 SELECT 
