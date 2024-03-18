@@ -219,6 +219,7 @@ class SherdogBoutItem(Item):
     WEIGHT_CLASS = Field()
     WEIGHT = Field()
     OUTCOME_METHOD = Field()
+    OUTCOME_METHOD_DETAILS = Field()
     END_ROUND = Field()
     END_ROUND_TIME_SECONDS = Field()
     TOTAL_TIME_SECONDS = Field()
@@ -239,6 +240,7 @@ class SherdogFighterBoutHistoryItem(Item):
     OPPONENT_NAME = Field()
     OUTCOME = Field()
     OUTCOME_METHOD = Field()
+    OUTCOME_METHOD_DETAILS = Field()
     END_ROUND = Field()
     END_ROUND_TIME_SECONDS = Field()
     TOTAL_TIME_SECONDS = Field()
@@ -257,42 +259,35 @@ class FightMatrixFighterItem(Item):
     UFC_DEBUT_DATE = Field()
 
 
-class FightMatrixBoutEloItem(Item):
+class FightMatrixBoutItem(Item):
     """
     Item class for historical bout data from FightMatrix
     """
 
-    FIGHTER_ID = Field()
-    FIGHTER_BOUT_ORDINAL = Field()
     EVENT_ID = Field()
     EVENT_NAME = Field()
     DATE = Field()
-    OPPONENT_ID = Field()
-    OPPONENT_NAME = Field()
-    ELO_K170_PRE = Field()
-    ELO_K170_POST = Field()
-    ELO_MODIFIED_PRE = Field()
-    ELO_MODIFIED_POST = Field()
-    GLICKO1_PRE = Field()
-    GLICKO1_POST = Field()
-    OPPONENT_ELO_K170_PRE = Field()
-    OPPONENT_ELO_K170_POST = Field()
-    OPPONENT_ELO_MODIFIED_PRE = Field()
-    OPPONENT_ELO_MODIFIED_POST = Field()
-    OPPONENT_GLICKO1_PRE = Field()
-    OPPONENT_GLICKO1_POST = Field()
-    OUTCOME = Field()
+    BOUT_ORDINAL = Field()
+    FIGHTER_1_ID = Field()
+    FIGHTER_2_ID = Field()
+    FIGHTER_1_OUTCOME = Field()
+    FIGHTER_2_OUTCOME = Field()
+    FIGHTER_1_ELO_K170_PRE = Field()
+    FIGHTER_1_ELO_K170_POST = Field()
+    FIGHTER_2_ELO_K170_PRE = Field()
+    FIGHTER_2_ELO_K170_POST = Field()
+    FIGHTER_1_ELO_MODIFIED_PRE = Field()
+    FIGHTER_1_ELO_MODIFIED_POST = Field()
+    FIGHTER_2_ELO_MODIFIED_PRE = Field()
+    FIGHTER_2_ELO_MODIFIED_POST = Field()
+    FIGHTER_1_GLICKO1_PRE = Field()
+    FIGHTER_1_GLICKO1_POST = Field()
+    FIGHTER_2_GLICKO1_PRE = Field()
+    FIGHTER_2_GLICKO1_POST = Field()
+    WEIGHT_CLASS = Field()
     OUTCOME_METHOD = Field()
+    OUTCOME_METHOD_DETAILS = Field()
     END_ROUND = Field()
-
-
-class FightMatrixCutoffEventItem(Item):
-    """
-    Item class for events whose names are cutoff
-    """
-
-    EVENT_ID = Field()
-    EVENT_NAME = Field()
 
 
 class FightMatrixRankingItem(Item):

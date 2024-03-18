@@ -219,7 +219,14 @@ class SherdogResultsSpider(Spider):
                 if td_text[0] == "Match":
                     main_event_bout_item["BOUT_ORDINAL"] = int(td_text[1]) - 1
                 elif td_text[0] == "Method":
-                    main_event_bout_item["OUTCOME_METHOD"] = td_text[1].strip()
+                    main_method_full = td_text[1].strip()
+                    main_method_split = main_method_full.split(" (")
+                    main_event_bout_item["OUTCOME_METHOD"] = main_method_split[0]
+                    main_event_bout_item["OUTCOME_METHOD_DETAILS"] = (
+                        main_method_split[1].replace(")", "")
+                        if len(main_method_split) > 1
+                        else None
+                    )
                 elif td_text[0] == "Round":
                     main_event_bout_item["END_ROUND"] = int(td_text[1])
                 elif td_text[0] == "Time":
@@ -227,6 +234,11 @@ class SherdogResultsSpider(Spider):
                     main_event_bout_item["END_ROUND_TIME_SECONDS"] = 60 * int(
                         end_round_time_split[0]
                     ) + int(end_round_time_split[1])
+
+            main_event_bout_item["TOTAL_TIME_SECONDS"] = (
+                300 * (main_event_bout_item["END_ROUND"] - 1)
+                + main_event_bout_item["END_ROUND_TIME_SECONDS"]
+            )
 
             yield main_event_bout_item
 
@@ -303,12 +315,21 @@ class SherdogResultsSpider(Spider):
                     .get()
                 )
 
-                bout_item["OUTCOME_METHOD"] = tds[4].css("b::text").get().strip()
+                method_full = tds[4].css("b::text").get().strip()
+                method_split = method_full.split(" (")
+                bout_item["OUTCOME_METHOD"] = method_split[0]
+                bout_item["OUTCOME_METHOD_DETAILS"] = (
+                    method_split[1].replace(")", "") if len(method_split) > 1 else None
+                )
                 bout_item["END_ROUND"] = int(tds[5].css("::text").get().strip())
                 end_round_time_split = tds[6].css("::text").get().strip().split(":")
                 bout_item["END_ROUND_TIME_SECONDS"] = 60 * int(
                     end_round_time_split[0]
                 ) + int(end_round_time_split[1])
+                bout_item["TOTAL_TIME_SECONDS"] = (
+                    300 * (bout_item["END_ROUND"] - 1)
+                    + bout_item["END_ROUND_TIME_SECONDS"]
+                )
 
                 yield bout_item
 
@@ -394,9 +415,16 @@ class SherdogResultsSpider(Spider):
                 tds[2].css("span.sub_line::text").get()
             ).strftime("%Y-%m-%d")
 
-            outcome_method = tds[3].css("b::text").get()
+            method_full = tds[3].css("b::text").get()
+            method_full = method_full if method_full and method_full != "N/A" else None
+            method_split = method_full.split(" (") if method_full else None
             fighter_bout_history_item["OUTCOME_METHOD"] = (
-                outcome_method if outcome_method and outcome_method != "N/A" else None
+                method_split[0].replace("DG", "DQ").strip() if method_split else None
+            )
+            fighter_bout_history_item["OUTCOME_METHOD_DETAILS"] = (
+                method_split[1].replace(")", "")
+                if method_split and len(method_split) > 1
+                else None
             )
 
             end_round = int(tds[4].css("::text").get().strip())

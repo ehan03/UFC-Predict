@@ -8,8 +8,7 @@ from scrapy.spiders import Spider
 
 # local imports
 from src.scrapers.ufc_scrapy.items import (
-    FightMatrixBoutEloItem,
-    FightMatrixCutoffEventItem,
+    FightMatrixBoutItem,
     FightMatrixFighterItem,
     FightMatrixRankingItem,
 )
@@ -43,7 +42,7 @@ class FightMatrixResultsSpider(Spider):
         "LOG_LEVEL": "INFO",
         "ITEM_PIPELINES": {
             "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixFightersPipeline": 100,
-            "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixFighterEloHistoryPipeline": 200,
+            "ufc_scrapy.scrapy_pipelines.fightmatrix_pipelines.FightMatrixBoutsPipeline": 200,
         },
         "CLOSESPIDER_ERRORCOUNT": 1,
         "DOWNLOAD_DELAY": 1.5,
@@ -105,13 +104,86 @@ class FightMatrixResultsSpider(Spider):
             self.parse_fighter,
         )
 
+        event_id = int(response.url.split("/")[-2])
+        event_name = response.css("H1 > a::text").get().strip()
+        event_date = pd.to_datetime(
+            w3lib.html.remove_tags(response.css("H3").get())
+            .strip()
+            .replace("UFC, ", "")
+        ).strftime("%Y-%m-%d")
+
+        table = response.css("table.tblRank")
+        rows = table.css("tr")[1:]
+        for row in rows:
+            bout_item = FightMatrixBoutItem()
+
+            bout_item["EVENT_ID"] = event_id
+            bout_item["EVENT_NAME"] = event_name
+            bout_item["DATE"] = event_date
+
+            tds = row.css("td")
+            bout_item["BOUT_ORDINAL"] = int(tds[0].css("::text").get().strip()) - 1
+            bout_item["FIGHTER_1_ID"] = int(
+                tds[2].css("a::attr(href)").get().split("/")[-2]
+            )
+            f1_elo_string_split = (
+                w3lib.html.remove_tags(tds[2].css("::attr(onmouseover)").get().strip())
+                .replace("LoadCustomData('stat','|", "")
+                .replace("|'); TagToTip('tip_div')", "")
+            ).split("|")
+            assert len(f1_elo_string_split) == 6
+
+            bout_item["FIGHTER_1_ELO_K170_PRE"] = int(f1_elo_string_split[0])
+            bout_item["FIGHTER_1_ELO_K170_POST"] = int(f1_elo_string_split[1])
+            bout_item["FIGHTER_1_ELO_MODIFIED_PRE"] = int(f1_elo_string_split[2])
+            bout_item["FIGHTER_1_ELO_MODIFIED_POST"] = int(f1_elo_string_split[3])
+            bout_item["FIGHTER_1_GLICKO1_PRE"] = int(f1_elo_string_split[4])
+            bout_item["FIGHTER_1_GLICKO1_POST"] = int(f1_elo_string_split[5])
+
+            outcome_split = [
+                x.strip() for x in tds[2].css("p::text").get().split(" - ")
+            ]
+            assert len(outcome_split) == 3
+            bout_item["FIGHTER_1_OUTCOME"] = outcome_split[0]
+            bout_item["FIGHTER_2_OUTCOME"] = (
+                "L" if outcome_split[0] == "W" else outcome_split[0]
+            )
+            method_split = outcome_split[1].split(" (")
+            bout_item["OUTCOME_METHOD"] = method_split[0] if method_split[0] else None
+            bout_item["OUTCOME_METHOD_DETAILS"] = (
+                method_split[1].replace(")", "") if len(method_split) > 1 else None
+            )
+            bout_item["END_ROUND"] = int(outcome_split[2].split(" ")[-1])
+
+            bout_item["FIGHTER_2_ID"] = int(
+                tds[4].css("a::attr(href)").get().split("/")[-2]
+            )
+            f2_elo_string_split = (
+                w3lib.html.remove_tags(tds[4].css("::attr(onmouseover)").get().strip())
+                .replace("LoadCustomData('stat','|", "")
+                .replace("|'); TagToTip('tip_div')", "")
+            ).split("|")
+            assert len(f2_elo_string_split) == 6
+
+            bout_item["FIGHTER_2_ELO_K170_PRE"] = int(f2_elo_string_split[0])
+            bout_item["FIGHTER_2_ELO_K170_POST"] = int(f2_elo_string_split[1])
+            bout_item["FIGHTER_2_ELO_MODIFIED_PRE"] = int(f2_elo_string_split[2])
+            bout_item["FIGHTER_2_ELO_MODIFIED_POST"] = int(f2_elo_string_split[3])
+            bout_item["FIGHTER_2_GLICKO1_PRE"] = int(f2_elo_string_split[4])
+            bout_item["FIGHTER_2_GLICKO1_POST"] = int(f2_elo_string_split[5])
+
+            bout_item["WEIGHT_CLASS"] = tds[5].css("::text").get().strip()
+
+            yield bout_item
+
     def parse_fighter(self, response):
         fighter_item = FightMatrixFighterItem()
 
         fighter_item["FIGHTER_NAME"] = (
             response.css("div.posttitle > h1 > a::text").get().strip()
         )
-        fighter_item["FIGHTER_ID"] = int(response.url.split("/")[-2])
+        fighter_id = int(response.url.split("/")[-2])
+        fighter_item["FIGHTER_ID"] = fighter_id
 
         fighter_links = response.css(
             "td.tdRankHead > div.leftCol *> a::attr(href)"
@@ -151,89 +223,13 @@ class FightMatrixResultsSpider(Spider):
                 ).strftime("%Y-%m-%d")
                 break
 
+        # Edge cases
+        if fighter_id == 1002:
+            fighter_item["UFC_DEBUT_DATE"] = "1999-01-08"
+        elif fighter_id in [1614, 21940]:
+            fighter_item["UFC_DEBUT_DATE"] = "1999-03-05"
+
         yield fighter_item
-
-        # ELO rating history
-        bout_history_table = response.css("table.tblRank[style='width:845px']")
-        rows = bout_history_table.css("tr[onmouseout='UnTip()']")
-        cutoff_event_urls = []
-        for bout_ordinal, row in enumerate(reversed(rows)):
-            bout_elo_item = FightMatrixBoutEloItem()
-
-            bout_elo_item["FIGHTER_ID"] = int(response.url.split("/")[-2])
-            bout_elo_item["FIGHTER_BOUT_ORDINAL"] = bout_ordinal
-
-            tds = row.css("td")
-            bout_elo_item["OUTCOME"] = tds[0].css("b::text").get().strip()
-            bout_elo_item["OPPONENT_ID"] = int(
-                tds[1].css("strong > a.sherLink::attr(href)").get().split("/")[-2]
-            )
-            bout_elo_item["OPPONENT_NAME"] = (
-                tds[1].css("strong > a.sherLink::text").get().strip()
-            )
-
-            event_name = tds[2].css("strong > a::text").get().strip()
-            bout_elo_item["EVENT_NAME"] = event_name
-            bout_elo_item["EVENT_ID"] = int(
-                tds[2].css("strong > a::attr(href)").get().split("/")[-2]
-            )
-            bout_elo_item["DATE"] = pd.to_datetime(
-                tds[2].css("em::text").get().strip()
-            ).strftime("%Y-%m-%d")
-
-            # For whatever reason, FightMatrix truncates long event names
-            if event_name.endswith("..."):
-                cutoff_event_urls.append(
-                    tds[2]
-                    .css("strong > a::attr(href)")
-                    .get()
-                    .strip()
-                    .replace("%2F", "%252F")
-                )
-
-            outcome_details = [x.strip() for x in tds[3].css("::text").getall()]
-            assert len(outcome_details) == 2
-
-            bout_elo_item["OUTCOME_METHOD"] = (
-                outcome_details[0]
-                if outcome_details[0] and outcome_details[0] != "N/A"
-                else None
-            )
-            end_round = int(outcome_details[1].split(" ")[-1])
-            bout_elo_item["END_ROUND"] = end_round if end_round != 0 else None
-
-            elo_string = (
-                w3lib.html.remove_tags(row.css("::attr(onmouseover)").get().strip())
-                .replace("LoadCustomData('stat','", "")
-                .replace("'); TagToTip('tip_div')", "")
-            )
-            elo_string_split = elo_string.split("|")
-            assert len(elo_string_split) == 18
-
-            bout_elo_item["ELO_K170_PRE"] = int(elo_string_split[6])
-            bout_elo_item["ELO_K170_POST"] = int(elo_string_split[7])
-            bout_elo_item["OPPONENT_ELO_K170_PRE"] = int(elo_string_split[8])
-            bout_elo_item["OPPONENT_ELO_K170_POST"] = int(elo_string_split[9])
-            bout_elo_item["ELO_MODIFIED_PRE"] = int(elo_string_split[10])
-            bout_elo_item["ELO_MODIFIED_POST"] = int(elo_string_split[11])
-            bout_elo_item["OPPONENT_ELO_MODIFIED_PRE"] = int(elo_string_split[12])
-            bout_elo_item["OPPONENT_ELO_MODIFIED_POST"] = int(elo_string_split[13])
-            bout_elo_item["GLICKO1_PRE"] = int(elo_string_split[14])
-            bout_elo_item["GLICKO1_POST"] = int(elo_string_split[15])
-            bout_elo_item["OPPONENT_GLICKO1_PRE"] = int(elo_string_split[16])
-            bout_elo_item["OPPONENT_GLICKO1_POST"] = int(elo_string_split[17])
-
-            yield bout_elo_item
-
-        yield from response.follow_all(cutoff_event_urls, self.parse_cutoff_event)
-
-    def parse_cutoff_event(self, response):
-        event_item = FightMatrixCutoffEventItem()
-
-        event_item["EVENT_ID"] = int(response.url.split("/")[-2])
-        event_item["EVENT_NAME"] = response.css("H1 > a::text").get().strip()
-
-        yield event_item
 
 
 class FightMatrixRankingsSpider(Spider):

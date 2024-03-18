@@ -7,13 +7,12 @@ import pandas as pd
 
 # local imports
 from src.databases.create_statements import (
-    CREATE_FIGHTMATRIX_ELO_HISTORY_TABLE,
+    CREATE_FIGHTMATRIX_BOUTS_TABLE,
     CREATE_FIGHTMATRIX_FIGHTERS_TABLE,
     CREATE_FIGHTMATRIX_RANKINGS_TABLE,
 )
 from src.scrapers.ufc_scrapy.items import (
-    FightMatrixBoutEloItem,
-    FightMatrixCutoffEventItem,
+    FightMatrixBoutItem,
     FightMatrixFighterItem,
     FightMatrixRankingItem,
 )
@@ -110,9 +109,9 @@ class FightMatrixFightersPipeline:
         self.conn.close()
 
 
-class FightMatrixFighterEloHistoryPipeline:
+class FightMatrixBoutsPipeline:
     """
-    Item pipeline for FightMatrix Elo history data
+    Item pipeline for FightMatrix bouts data
     """
 
     def __init__(self) -> None:
@@ -120,8 +119,7 @@ class FightMatrixFighterEloHistoryPipeline:
         Initialize pipeline object
         """
 
-        self.elo_history = []
-        self.cutoff_events = {}
+        self.bouts = []
         self.conn = sqlite3.connect(
             os.path.join(
                 os.path.dirname(__file__),
@@ -135,7 +133,7 @@ class FightMatrixFighterEloHistoryPipeline:
             detect_types=sqlite3.PARSE_DECLTYPES,
         )
         self.cur = self.conn.cursor()
-        self.cur.execute(CREATE_FIGHTMATRIX_ELO_HISTORY_TABLE)
+        self.cur.execute(CREATE_FIGHTMATRIX_BOUTS_TABLE)
 
     def open_spider(self, spider):
         """
@@ -150,10 +148,8 @@ class FightMatrixFighterEloHistoryPipeline:
         Process item objects
         """
 
-        if isinstance(item, FightMatrixBoutEloItem):
-            self.elo_history.append(dict(item))
-        elif isinstance(item, FightMatrixCutoffEventItem):
-            self.cutoff_events[item["EVENT_ID"]] = item["EVENT_NAME"]
+        if isinstance(item, FightMatrixBoutItem):
+            self.bouts.append(dict(item))
 
         return item
 
@@ -162,40 +158,40 @@ class FightMatrixFighterEloHistoryPipeline:
         Close the spider
         """
 
-        elo_history_df = pd.DataFrame(self.elo_history).sort_values(
-            by=["FIGHTER_ID", "FIGHTER_BOUT_ORDINAL"]
+        bouts_df = pd.DataFrame(self.bouts).sort_values(
+            by=["DATE", "EVENT_ID", "BOUT_ORDINAL"]
         )
 
-        elo_history_df.loc[
-            elo_history_df["EVENT_ID"].isin(self.cutoff_events.keys()), "EVENT_NAME"
-        ] = elo_history_df["EVENT_ID"].map(self.cutoff_events)
-
+        flag = True
         if self.scrape_type == "all":
             self.cur.execute(
                 """
                 DELETE FROM 
-                  FIGHTMATRIX_ELO_HISTORY;
+                  FIGHTMATRIX_BOUTS;
                 """
             )
         else:
-            fighter_ids = elo_history_df["FIGHTER_ID"].unique().tolist()
-            for fighter_id in fighter_ids:
-                self.cur.execute(
-                    """
-                    DELETE FROM 
-                      FIGHTMATRIX_ELO_HISTORY 
-                    WHERE 
-                      FIGHTER_ID = ?;
-                    """,
-                    (fighter_id,),
-                )
+            most_recent_event_id = bouts_df["EVENT_ID"].iloc[0]
+            res = self.cur.execute(
+                """
+                SELECT 
+                  EVENT_ID 
+                FROM 
+                  FIGHTMATRIX_BOUTS 
+                WHERE 
+                  EVENT_ID = ?;
+                """,
+                (most_recent_event_id,),
+            ).fetchall()
+            flag = len(res) == 0
 
-        elo_history_df.to_sql(
-            "FIGHTMATRIX_ELO_HISTORY",
-            self.conn,
-            if_exists="append",
-            index=False,
-        )
+        if flag:
+            bouts_df.to_sql(
+                "FIGHTMATRIX_BOUTS",
+                self.conn,
+                if_exists="append",
+                index=False,
+            )
 
         self.conn.commit()
         self.conn.close()

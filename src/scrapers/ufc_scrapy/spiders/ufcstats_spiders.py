@@ -198,8 +198,11 @@ class UFCStatsResultsSpider(Spider):
         )
 
         details = response.css("p.b-fight-details__text").getall()
-        bout_overall_item["OUTCOME_METHOD_DETAILS"] = " ".join(
+        method_details = " ".join(
             w3lib.html.remove_tags(details[1]).replace("Details:", "").strip().split()
+        )
+        bout_overall_item["OUTCOME_METHOD_DETAILS"] = (
+            method_details if method_details else None
         )
 
         time_format_info = response.css("i.b-fight-details__text-item").getall()
